@@ -1,0 +1,16 @@
+UnRAR for Android
+
+Source: http://www.rarlab.com/rar_add.htm
+
+The Android port of UnRAR remove exception handling, unicode, volume and crypt support.
+They are immortalized in Android.patch to ease future upgraded.
+
+This file can be regenerated using:
+
+diff -crB orig src > Android.patch
+
+
+Patch the source with the follow command:
+
+patch -p0 < Android.patch
+

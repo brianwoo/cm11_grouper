@@ -1,0 +1,139 @@
+/*
+ * Copyright 2010, Intel Corporation
+ *
+ * This file is part of PowerTOP
+ *
+ * This program file is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program in a file named COPYING; if not, write to the
+ * Free Software Foundation, Inc,
+ * 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301 USA
+ * or just google for it.
+ *
+ * Authors:
+ *	Arjan van de Ven <arjan@linux.intel.com>
+ */
+#include <stdint.h>
+#include <sys/time.h>
+
+
+#define MSR_TSC				0x10
+#define MSR_NEHALEM_PLATFORM_INFO	0xCE
+#define MSR_NEHALEM_TURBO_RATIO_LIMIT	0x1AD
+#define MSR_APERF			0xE8
+#define MSR_MPERF			0xE7
+#define MSR_PKG_C2_RESIDENCY		0x60D
+#define MSR_PKG_C3_RESIDENCY		0x3F8
+#define MSR_PKG_C6_RESIDENCY		0x3F9
+#define MSR_PKG_C7_RESIDENCY		0x3FA
+#define MSR_CORE_C3_RESIDENCY		0x3FC
+#define MSR_CORE_C6_RESIDENCY		0x3FD
+#define MSR_CORE_C7_RESIDENCY		0x3FE
+
+
+class nhm_package: public cpu_package 
+{
+private:
+	uint64_t	c2_before, c2_after;
+	uint64_t	c3_before, c3_after;
+	uint64_t	c6_before, c6_after;
+	uint64_t	c7_before, c7_after;
+	uint64_t	tsc_before, tsc_after;
+
+	uint64_t	last_stamp;
+	uint64_t	total_stamp;
+
+	void		account_freq(uint64_t frequency, uint64_t duration);
+
+public:
+	virtual void 	measurement_start(void);
+	virtual void 	measurement_end(void);
+	virtual int     can_collapse(void) { return 0;};
+
+	virtual char *  fill_pstate_line(int line_nr, char *buffer);
+
+	virtual void    calculate_freq(uint64_t time);
+	virtual void	change_effective_frequency(uint64_t time, uint64_t freq);
+
+};
+
+class nhm_core: public cpu_core 
+{
+private:
+	uint64_t	c3_before, c3_after;
+	uint64_t	c6_before, c6_after;
+	uint64_t	c7_before, c7_after;
+	uint64_t	tsc_before, tsc_after;
+
+	uint64_t	last_stamp;
+	uint64_t	total_stamp;
+
+	void		account_freq(uint64_t frequency, uint64_t duration);
+public:
+	virtual void 	measurement_start(void);
+	virtual void 	measurement_end(void);
+	virtual int     can_collapse(void) { return 0;};
+
+	virtual char *  fill_pstate_line(int line_nr, char *buffer);
+
+	virtual void    calculate_freq(uint64_t time);
+	virtual void	change_effective_frequency(uint64_t time, uint64_t freq);
+
+};
+
+class nhm_cpu: public cpu_linux
+{
+private:
+	uint64_t	aperf_before;
+	uint64_t	aperf_after;
+	uint64_t	mperf_before;
+	uint64_t	mperf_after;
+	uint64_t	tsc_before, tsc_after;
+
+	uint64_t	last_stamp;
+	uint64_t	total_stamp;
+
+	void		account_freq(uint64_t frequency, uint64_t duration);
+public:
+	virtual void 	measurement_start(void);
+	virtual void 	measurement_end(void);
+	virtual int     can_collapse(void) { return 0;};
+
+	virtual char *  fill_pstate_name(int line_nr, char *buffer);
+	virtual char *  fill_pstate_line(int line_nr, char *buffer);
+	virtual int	has_pstate_level(int level);
+
+	virtual void    change_freq(uint64_t time, int freq);
+	virtual void	change_effective_frequency(uint64_t time, uint64_t freq);
+	virtual void    go_idle(uint64_t time);
+	virtual void    go_unidle(uint64_t time);
+
+};
+
+class atom_package: public cpu_package 
+{
+public:
+	virtual void 	measurement_start(void);
+	virtual void 	measurement_end(void);
+
+};
+
+class atom_core: public cpu_core
+{
+public:
+	virtual void 	measurement_start(void);
+	virtual void 	measurement_end(void);
+
+};
+
+
+extern int is_snb;

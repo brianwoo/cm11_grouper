@@ -1,0 +1,44 @@
+buildscript {
+    repositories {
+        maven { url 'http://repo1.maven.org/maven2' }
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:+'
+    }
+}
+apply plugin: 'com.android.library'
+
+android {
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+
+            jniLibs.srcDirs = ['libs/']
+
+            java.srcDirs=['src/'
+//                          , '../conscrypt/'
+//                          , '../compat/'
+            ]
+        }
+        androidTest.java.srcDirs=['test/src/']
+        androidTest.res.srcDirs=['test/res/']
+        androidTest.assets.srcDirs=['test/assets/']
+    }
+
+    lintOptions {
+        abortOnError false
+    }
+
+    defaultConfig {
+        minSdkVersion 9
+        targetSdkVersion 19
+    }
+
+    compileSdkVersion 19
+    buildToolsVersion "20.0.0"
+}
+
+// upload to maven task
+if (System.getenv().I_AM_KOUSH == 'true') {
+  apply from: 'https://raw.githubusercontent.com/koush/mvn-repo/master/maven.gradle'
+}

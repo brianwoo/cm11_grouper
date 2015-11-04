@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item android:title="@string/conversation__menu_add_attachment"
+          android:id="@+id/menu_add_attachment"
+          android:icon="@drawable/ic_menu_attach" />
+
+    <item android:title="@string/conversation__menu_add_contact_info"
+          android:id="@+id/menu_add_contact_info"
+          android:icon="@drawable/ic_menu_friendslist" />
+
+    <item android:title="@string/conversation__menu_delete_thread"
+          android:id="@+id/menu_delete_thread"
+          android:icon="@android:drawable/ic_menu_delete" />
+
+</menu>

@@ -1,0 +1,6572 @@
+diff -crB orig/arccmt.cpp src/arccmt.cpp
+*** orig/arccmt.cpp	2013-12-28 19:18:09.103077946 +0100
+--- src/arccmt.cpp	2013-12-28 19:18:09.111077946 +0100
+***************
+*** 1,6 ****
+--- 1,10 ----
+  bool IsAnsiComment(const char *Data,int Size);
+  
++ #ifndef __BIONIC__
+  bool Archive::GetComment(Array<byte> *CmtData,Array<wchar> *CmtDataW)
++ #else
++ bool Archive::GetComment(Array<byte> *CmtData)
++ #endif
+  {
+    if (!MainComment)
+      return(false);
+***************
+*** 28,34 ****
+--- 32,42 ----
+      {
+        // Current (RAR 3.0+) version of archive comment.
+        Seek(SFXSize+SIZEOF_MARKHEAD+NewMhd.HeadSize,SEEK_SET);
++ #ifndef __BIONIC__
+        return(SearchSubBlock(SUBHEAD_TYPE_CMT)!=0 && ReadCommentData(CmtData,CmtDataW)!=0);
++ #else
++       return(SearchSubBlock(SUBHEAD_TYPE_CMT)!=0 && ReadCommentData(CmtData)!=0);
++ #endif
+      }
+  #ifndef SFX_MODULE
+      // Old style (RAR 2.9) comment header embedded into the main 
+***************
+*** 125,137 ****
+    return(CmtData->Size()>0);
+  }
+  
+! 
+  size_t Archive::ReadCommentData(Array<byte> *CmtData,Array<wchar> *CmtDataW)
+  {
+    bool Unicode=SubHead.SubFlags & SUBHEAD_FLAGS_CMT_UNICODE;
+    if (!ReadSubData(CmtData,NULL))
+      return(0);
+    size_t CmtSize=CmtData->Size();
+    if (Unicode)
+    {
+      CmtSize/=2;
+--- 133,149 ----
+    return(CmtData->Size()>0);
+  }
+  
+! #ifndef __BIONIC__
+  size_t Archive::ReadCommentData(Array<byte> *CmtData,Array<wchar> *CmtDataW)
++ #else
++ size_t Archive::ReadCommentData(Array<byte> *CmtData)
++ #endif
+  {
+    bool Unicode=SubHead.SubFlags & SUBHEAD_FLAGS_CMT_UNICODE;
+    if (!ReadSubData(CmtData,NULL))
+      return(0);
+    size_t CmtSize=CmtData->Size();
++ #ifndef __BIONIC__
+    if (Unicode)
+    {
+      CmtSize/=2;
+***************
+*** 159,164 ****
+--- 171,177 ----
+        CmtData->Alloc(CmtSize);
+        CmtDataW->Alloc(wcslen(CmtDataW->Addr()));
+      }
++ #endif
+    return(CmtSize);
+  }
+  
+***************
+*** 169,175 ****
+--- 182,192 ----
+    if (Cmd->DisableComment)
+      return;
+    Array<byte> CmtBuf;
++ #ifndef __BIONIC__
+    if (GetComment(&CmtBuf,NULL))
++ #else
++   if (GetComment(&CmtBuf))
++ #endif
+    {
+      size_t CmtSize=CmtBuf.Size();
+      char *ChPtr=(char *)memchr(&CmtBuf[0],0x1A,CmtSize);
+diff -crB orig/archive.cpp src/archive.cpp
+*** orig/archive.cpp	2013-12-28 19:18:09.103077946 +0100
+--- src/archive.cpp	2013-12-28 19:18:09.111077946 +0100
+***************
+*** 42,48 ****
+--- 42,50 ----
+    *SubDataSalt=0;
+  #endif
+    *FirstVolumeName=0;
++ #ifndef __BIONIC__
+    *FirstVolumeNameW=0;
++ #endif
+  
+    Splitting=false;
+    NewArchive=false;
+***************
+*** 66,82 ****
+  
+  
+  #if !defined(SHELL_EXT) && !defined(SFX_MODULE)
+  void Archive::CheckOpen(const char *Name,const wchar *NameW)
+  {
+    TOpen(Name,NameW);
+    CheckArc(false);
+  }
+  #endif
+  
+! 
+  bool Archive::WCheckOpen(const char *Name,const wchar *NameW)
+  {
+    if (!WOpen(Name,NameW))
+      return(false);
+    if (!IsArchive(false))
+    {
+--- 68,99 ----
+  
+  
+  #if !defined(SHELL_EXT) && !defined(SFX_MODULE)
++ #ifndef __BIONIC__
+  void Archive::CheckOpen(const char *Name,const wchar *NameW)
++ #else
++ void Archive::CheckOpen(const char *Name)
++ #endif
+  {
++ #ifndef __BIONIC__
+    TOpen(Name,NameW);
++ #else
++   TOpen(Name);
++ #endif
+    CheckArc(false);
+  }
+  #endif
+  
+! #ifndef __BIONIC__
+  bool Archive::WCheckOpen(const char *Name,const wchar *NameW)
++ #else
++ bool Archive::WCheckOpen(const char *Name)
++ #endif
+  {
++ #ifndef __BIONIC__
+    if (!WOpen(Name,NameW))
++ #else
++   if (!WOpen(Name))
++ #endif
+      return(false);
+    if (!IsArchive(false))
+    {
+***************
+*** 250,256 ****
+--- 267,275 ----
+    if (!Volume || !NotFirstVolume)
+    {
+      strcpy(FirstVolumeName,FileName);
++ #ifndef __BIONIC__
+      wcscpy(FirstVolumeNameW,FileNameW);
++ #endif
+    }
+  
+    return(true);
+diff -crB orig/archive.hpp src/archive.hpp
+*** orig/archive.hpp	2013-12-28 19:18:09.103077946 +0100
+--- src/archive.hpp	2013-12-28 19:18:09.111077946 +0100
+***************
+*** 13,19 ****
+--- 13,21 ----
+      ARCSIGN_TYPE IsSignature(const byte *D,size_t Size);
+      void UpdateLatestTime(FileHeader *CurBlock);
+      void ConvertNameCase(char *Name);
++ #ifndef __BIONIC__
+      void ConvertNameCase(wchar *Name);
++ #endif
+      void ConvertUnknownHeader();
+      size_t ReadOldHeader();
+      void UnexpEndArcMsg();
+***************
+*** 48,60 ****
+--- 50,72 ----
+      size_t SearchSubBlock(const char *Type);
+      int ReadBlock(int BlockType);
+      void WriteBlock(int BlockType,BaseBlock *wb=NULL);
++ #ifndef __BIONIC__
+      int PrepareNamesToWrite(char *Name,wchar *NameW,char *DestName,byte *DestNameW);
++ #else
++     int PrepareNamesToWrite(char *Name,char *DestName);
++ #endif
+      void SetLhdSize();
+      size_t ReadHeader();
+      void CheckArc(bool EnableBroken);
++ #ifndef __BIONIC__
+      void CheckOpen(const char *Name,const wchar *NameW=NULL);
+      bool WCheckOpen(const char *Name,const wchar *NameW=NULL);
+      bool GetComment(Array<byte> *CmtData,Array<wchar> *CmtDataW);
++ #else
++     void CheckOpen(const char *Name);
++     bool WCheckOpen(const char *Name);
++     bool GetComment(Array<byte> *CmtData);
++ #endif
+      void ViewComment();
+      void ViewFileComment();
+      void SetLatestTime(RarTime *NewTime);
+***************
+*** 68,74 ****
+--- 80,90 ----
+      void AddSubData(byte *SrcData,size_t DataSize,File *SrcFile,const char *Name,bool AllowSplit);
+      bool ReadSubData(Array<byte> *UnpData,File *DestFile);
+      int GetHeaderType() {return(CurHeaderType);};
++ #ifndef __BIONIC__
+      size_t ReadCommentData(Array<byte> *CmtData,Array<wchar> *CmtDataW);
++ #else
++     size_t ReadCommentData(Array<byte> *CmtData);
++ #endif
+      void WriteCommentData(byte *Data,size_t DataSize,bool FileComment);
+      RAROptions* GetRAROptions() {return(Cmd);}
+      void SetSilentOpen(bool Mode) {SilentOpen=Mode;}
+***************
+*** 114,120 ****
+--- 130,138 ----
+      bool NewArchive;
+  
+      char FirstVolumeName[NM];
++ #ifndef __BIONIC__
+      wchar FirstVolumeNameW[NM];
++ #endif
+  };
+  
+  
+diff -crB orig/arcread.cpp src/arcread.cpp
+*** orig/arcread.cpp	2013-12-28 19:18:09.104077946 +0100
+--- src/arcread.cpp	2013-12-28 19:18:09.111077946 +0100
+***************
+*** 99,105 ****
+--- 99,109 ----
+          ErrHandler.Exit(RARX_USERBREAK);
+        }
+  #else
++ #ifndef __BIONIC__
+        if (!GetPassword(PASSWORD_ARCHIVE,FileName,FileNameW,&Cmd->Password))
++ #else
++       if (!GetPassword(PASSWORD_ARCHIVE,FileName,&Cmd->Password))
++ #endif
+        {
+          Close();
+          ErrHandler.Exit(RARX_USERBREAK);
+***************
+*** 236,241 ****
+--- 240,246 ----
+          else
+            if (hd->HeadType==FILE_HEAD)
+            {
++ #ifndef __BIONIC__
+              if (hd->Flags & LHD_UNICODE)
+              {
+                EncodeFileName NameCoder;
+***************
+*** 258,267 ****
+--- 263,275 ----
+              }
+              else
+                *hd->FileNameW=0;
++ #endif
+  #ifndef SFX_MODULE
+              ConvertNameCase(hd->FileName);
++ #ifndef __BIONIC__
+              ConvertNameCase(hd->FileNameW);
+  #endif
++ #endif
+              ConvertUnknownHeader();
+            }
+          if (hd->Flags & LHD_SALT)
+***************
+*** 325,333 ****
+--- 333,343 ----
+            if (!EncBroken)
+            {
+  #ifndef SHELL_EXT
++ #ifndef __BIONIC__
+              Log(Archive::FileName,St(MLogFileHead),IntNameToExt(hd->FileName));
+              Alarm();
+  #endif
++ #endif
+            }
+          }
+        }
+***************
+*** 547,552 ****
+--- 557,563 ----
+  
+  
+  #ifndef SFX_MODULE
++ #ifndef __BIONIC__
+  void Archive::ConvertNameCase(wchar *Name)
+  {
+    if (Cmd->ConvertNames==NAMES_UPPERCASE)
+***************
+*** 555,560 ****
+--- 566,572 ----
+      wcslower(Name);
+  }
+  #endif
++ #endif
+  
+  
+  bool Archive::IsArcDir()
+diff -crB orig/cmddata.cpp src/cmddata.cpp
+*** orig/cmddata.cpp	2013-12-28 19:18:09.104077946 +0100
+--- src/cmddata.cpp	2013-12-28 19:18:09.112077946 +0100
+***************
+*** 20,28 ****
+--- 20,32 ----
+    Close();
+  
+    *Command=0;
++ #ifndef __BIONIC__
+    *CommandW=0;
++ #endif
+    *ArcName=0;
++ #ifndef __BIONIC__
+    *ArcNameW=0;
++ #endif
+    FileLists=false;
+    NoMoreSwitches=false;
+  
+***************
+*** 127,133 ****
+--- 131,141 ----
+    }
+  #else
+    for (int I=1;I<argc;I++)
++ #ifndef __BIONIC__
+      ParseArg(argv[I],NULL);
++ #else
++     ParseArg(argv[I]);
++ #endif
+  #endif
+    ParseDone();
+  }
+***************
+*** 135,154 ****
+  
+  
+  #ifndef SFX_MODULE
+  void CommandData::ParseArg(char *Arg,wchar *ArgW)
+  {
+    if (IsSwitch(*Arg) && !NoMoreSwitches)
+      if (Arg[1]=='-')
+        NoMoreSwitches=true;
+      else
+        ProcessSwitch(Arg+1,(ArgW!=NULL && *ArgW!=0 ? ArgW+1:NULL));
+    else
+      if (*Command==0)
+      {
+        strncpyz(Command,Arg,ASIZE(Command));
+        if (ArgW!=NULL)
+          wcsncpy(CommandW,ArgW,ASIZE(CommandW));
+! 
+  
+  #ifndef GUI
+        *Command=etoupper(*Command);
+--- 143,171 ----
+  
+  
+  #ifndef SFX_MODULE
++ #ifndef __BIONIC__
+  void CommandData::ParseArg(char *Arg,wchar *ArgW)
++ #else
++ void CommandData::ParseArg(char *Arg)
++ #endif
+  {
+    if (IsSwitch(*Arg) && !NoMoreSwitches)
+      if (Arg[1]=='-')
+        NoMoreSwitches=true;
+      else
++ #ifndef __BIONIC__
+        ProcessSwitch(Arg+1,(ArgW!=NULL && *ArgW!=0 ? ArgW+1:NULL));
++ #else
++       ProcessSwitch(Arg+1);
++ #endif
+    else
+      if (*Command==0)
+      {
+        strncpyz(Command,Arg,ASIZE(Command));
++ #ifndef __BIONIC__
+        if (ArgW!=NULL)
+          wcsncpy(CommandW,ArgW,ASIZE(CommandW));
+! #endif
+  
+  #ifndef GUI
+        *Command=etoupper(*Command);
+***************
+*** 160,174 ****
+--- 177,198 ----
+  #endif
+      }
+      else
++ #ifndef __BIONIC__
+        if (*ArcName==0 && *ArcNameW==0)
++ #else
++       if (*ArcName==0)
++ #endif
+        {
+          strncpyz(ArcName,Arg,ASIZE(ArcName));
++ #ifndef __BIONIC__
+          if (ArgW!=NULL)
+            wcsncpyz(ArcNameW,ArgW,ASIZE(ArcNameW));
++ #endif
+        }
+        else
+        {
+          bool EndSeparator; // If last character is the path separator.
++ #ifndef __BIONIC__
+          if (ArgW!=NULL)
+          {
+            size_t Length=wcslen(ArgW);
+***************
+*** 177,186 ****
+--- 201,213 ----
+          }
+          else
+          {
++ #endif
+            size_t Length=strlen(Arg);
+            char EndChar=Length==0 ? 0:Arg[Length-1];
+            EndSeparator=IsDriveDiv(EndChar) || IsPathDiv(EndChar);
++ #ifndef __BIONIC__
+          }
++ #endif
+  
+          char CmdChar=etoupper(*Command);
+          bool Add=strchr("AFUM",CmdChar)!=NULL;
+***************
+*** 188,205 ****
+--- 215,246 ----
+          if (EndSeparator && !Add)
+          {
+            strncpyz(ExtrPath,Arg,ASIZE(ExtrPath));
++ #ifndef __BIONIC__
+            if (ArgW!=NULL)
+              wcsncpyz(ExtrPathW,ArgW,ASIZE(ExtrPathW));
++ #endif
+          }
+          else
+            if ((Add || CmdChar=='T') && (*Arg!='@' || ListMode==RCLM_REJECT_LISTS))
++ #ifndef __BIONIC__
+              FileArgs->AddString(Arg,ArgW);
++ #else
++             FileArgs->AddString(Arg);
++ #endif
+            else
+            {
+              FindData FileData;
++ #ifndef __BIONIC__
+              bool Found=FindFile::FastFind(Arg,ArgW,&FileData);
++ #else
++             bool Found=FindFile::FastFind(Arg,&FileData);
++ #endif
+              if ((!Found || ListMode==RCLM_ACCEPT_LISTS) && 
++ #ifndef __BIONIC__
+                  ListMode!=RCLM_REJECT_LISTS && *Arg=='@' && !IsWildcard(Arg,ArgW))
++ #else
++                 ListMode!=RCLM_REJECT_LISTS && *Arg=='@' && !IsWildcard(Arg))
++ #endif
+              {
+                FileLists=true;
+  
+***************
+*** 213,220 ****
+--- 254,265 ----
+                  Charset=RCH_OEM;
+  #endif
+  
++ #ifndef __BIONIC__
+                wchar *WideArgName=(ArgW!=NULL && *ArgW!=0 ? ArgW+1:NULL);
+                ReadTextFile(Arg+1,WideArgName,FileArgs,false,true,Charset,true,true,true);
++ #else
++               ReadTextFile(Arg+1,FileArgs,false,true,Charset,true,true,true);
++ #endif
+  
+              }
+              else
+***************
+*** 222,235 ****
+--- 267,286 ----
+                {
+                  strncpyz(ExtrPath,Arg,ASIZE(ExtrPath)-1);
+                  AddEndSlash(ExtrPath);
++ #ifndef __BIONIC__
+                  if (ArgW!=NULL)
+                  {
+                    wcsncpyz(ExtrPathW,ArgW,ASIZE(ExtrPathW)-1);
+                    AddEndSlash(ExtrPathW);
+                  }
++ #endif
+                }
+                else
++ #ifndef __BIONIC__
+                  FileArgs->AddString(Arg,ArgW);
++ #else
++                 FileArgs->AddString(Arg);
++ #endif
+            }
+        }
+  }
+***************
+*** 297,303 ****
+--- 348,358 ----
+  void CommandData::ReadConfig()
+  {
+    StringList List;
++ #ifndef __BIONIC__
+    if (ReadTextFile(DefConfigName,NULL,&List,true))
++ #else
++   if (ReadTextFile(DefConfigName,&List,true))
++ #endif
+    {
+      char *Str;
+      while ((Str=List.GetString())!=NULL)
+***************
+*** 335,344 ****
+  
+  
+  #if !defined(SFX_MODULE)
+  void CommandData::ProcessSwitch(const char *Switch,const wchar *SwitchW)
+  {
+! 
+    bool WidePresent=SwitchW!=NULL && *SwitchW!=0; // If 'true', SwitchW is not empty.
+  
+    switch(etoupper(Switch[0]))
+    {
+--- 390,406 ----
+  
+  
+  #if !defined(SFX_MODULE)
++ #ifndef __BIONIC__
+  void CommandData::ProcessSwitch(const char *Switch,const wchar *SwitchW)
++ #else
++ void CommandData::ProcessSwitch(const char *Switch)
++ #endif
+  {
+! #ifndef __BIONIC__
+    bool WidePresent=SwitchW!=NULL && *SwitchW!=0; // If 'true', SwitchW is not empty.
++ #else
++   bool WidePresent=false;
++ #endif
+  
+    switch(etoupper(Switch[0]))
+    {
+***************
+*** 494,501 ****
+--- 556,565 ----
+            break;
+          case 'P':
+            strcpy(ArcPath,Switch+2);
++ #ifndef __BIONIC__
+            if (WidePresent)
+              wcscpy(ArcPathW,SwitchW+2);
++ #endif
+            break;
+          case 'S':
+            SyncFiles=true;
+***************
+*** 608,614 ****
+--- 672,682 ----
+              Charset=RCH_OEM;
+  #endif
+  
++ #ifndef __BIONIC__
+            ReadTextFile(Switch+2,NULL,Args,false,true,Charset,true,true,true);
++ #else
++           ReadTextFile(Switch+2,Args,false,true,Charset,true,true,true);
++ #endif
+          }
+          else
+            Args->AddString(Switch+1);
+***************
+*** 654,666 ****
+--- 722,743 ----
+      case 'P':
+        if (Switch[1]==0)
+        {
++ #ifndef __BIONIC__
+          GetPassword(PASSWORD_GLOBAL,NULL,NULL,&Password);
++ #else
++         GetPassword(PASSWORD_GLOBAL,NULL,&Password);
++ #endif
+          eprintf("\n");
+        }
+        else
+        {
++ #ifndef __BIONIC__
+          wchar PlainPsw[MAXPASSWORD];
+          CharToWide(Switch+1,PlainPsw,ASIZE(PlainPsw));
++ #else
++         char PlainPsw[MAXPASSWORD];
++         strncpyz(PlainPsw,Switch+1,ASIZE(PlainPsw));
++ #endif
+          PlainPsw[ASIZE(PlainPsw)-1]=0;
+          Password.Set(PlainPsw);
+          cleandata(PlainPsw,ASIZE(PlainPsw));
+***************
+*** 672,679 ****
+--- 749,761 ----
+          EncryptHeaders=true;
+          if (Switch[2]!=0)
+          {
++ #ifndef __BIONIC__
+            wchar PlainPsw[MAXPASSWORD];
+            CharToWide(Switch+2,PlainPsw,ASIZE(PlainPsw));
++ #else
++           char PlainPsw[MAXPASSWORD];
++           strncpyz(PlainPsw,Switch+1,ASIZE(PlainPsw));
++ #endif
+            PlainPsw[ASIZE(PlainPsw)-1]=0;
+            Password.Set(PlainPsw);
+            cleandata(PlainPsw,ASIZE(PlainPsw));
+***************
+*** 681,693 ****
+--- 763,783 ----
+          else
+            if (!Password.IsSet())
+            {
++ #ifndef __BIONIC__
+              GetPassword(PASSWORD_GLOBAL,NULL,NULL,&Password);
++ #else
++             GetPassword(PASSWORD_GLOBAL,NULL,&Password);
++ #endif
+              eprintf("\n");
+            }
+        }
+        break;
+      case 'Z':
++ #ifndef __BIONIC__
+        if (Switch[1]==0 && (!WidePresent || SwitchW[1]==0))
++ #else
++       if (Switch[1]==0)
++ #endif
+        {
+  #ifndef GUI // stdin is not supported by WinRAR.
+          // If comment file is not specified, we read data from stdin.
+***************
+*** 697,704 ****
+--- 787,796 ----
+        else
+        {
+          strncpyz(CommentFile,Switch+1,ASIZE(CommentFile));
++ #ifndef __BIONIC__
+          if (WidePresent)
+            wcsncpyz(CommentFileW,SwitchW+1,ASIZE(CommentFileW));
++ #endif
+        }
+        break;
+      case 'M':
+***************
+*** 1231,1237 ****
+--- 1323,1333 ----
+  
+  int CommandData::IsProcessFile(FileHeader &NewLhd,bool *ExactMatch,int MatchType)
+  {
++ #ifndef __BIONIC__
+    if (strlen(NewLhd.FileName)>=NM || wcslen(NewLhd.FileNameW)>=NM)
++ #else
++   if (strlen(NewLhd.FileName)>=NM)
++ #endif
+      return(0);
+    bool Dir=(NewLhd.Flags & LHD_WINDOWMASK)==LHD_DIRECTORY;
+    if (ExclCheck(NewLhd.FileName,Dir,false,true))
+***************
+*** 1247,1255 ****
+--- 1343,1356 ----
+    char *ArgName;
+    wchar *ArgNameW;
+    FileArgs->Rewind();
++ #ifndef __BIONIC__
+    for (int StringCount=1;FileArgs->GetString(&ArgName,&ArgNameW);StringCount++)
++ #else
++   for (int StringCount=1;FileArgs->GetString(&ArgName);StringCount++)
++ #endif
+    {
+  #ifndef SFX_MODULE
++ #ifndef __BIONIC__
+      bool Unicode=(NewLhd.Flags & LHD_UNICODE) || ArgNameW!=NULL && *ArgNameW!=0;
+      if (Unicode)
+      {
+***************
+*** 1277,1282 ****
+--- 1378,1384 ----
+          continue;
+      }
+  #endif
++ #endif
+      if (CmpName(ArgName,NewLhd.FileName,MatchType))
+      {
+        if (ExactMatch!=NULL)
+***************
+*** 1308,1324 ****
+--- 1410,1438 ----
+    if (strchr("AFUMD",*Command)==NULL)
+    {
+      if (GenerateArcName)
++ #ifndef __BIONIC__
+        GenerateArchiveName(ArcName,ArcNameW,ASIZE(ArcName),GenerateMask,false);
++ #else
++       GenerateArchiveName(ArcName,ASIZE(ArcName),GenerateMask,false);
++ #endif
+  
+      StringList ArcMasks;
+      ArcMasks.AddString(ArcName);
+      ScanTree Scan(&ArcMasks,Recurse,SaveLinks,SCAN_SKIPDIRS);
+      FindData FindData;
+      while (Scan.GetNext(&FindData)==SCAN_SUCCESS)
++ #ifndef __BIONIC__
+        AddArcName(FindData.Name,FindData.NameW);
++ #else
++       AddArcName(FindData.Name);
++ #endif
+    }
+    else
++ #ifndef __BIONIC__
+      AddArcName(ArcName,NULL);
++ #else
++     AddArcName(ArcName);
++ #endif
+  #endif
+  
+    switch(Command[0])
+***************
+*** 1348,1362 ****
+  #endif
+  
+  
+  void CommandData::AddArcName(const char *Name,const wchar *NameW)
+  {
+    ArcNames->AddString(Name,NameW);
+  }
+  
+! 
+  bool CommandData::GetArcName(char *Name,wchar *NameW,int MaxSize)
+  {
+    if (!ArcNames->GetString(Name,NameW,NM))
+      return(false);
+    return(true);
+  }
+--- 1462,1491 ----
+  #endif
+  
+  
++ #ifndef __BIONIC__
+  void CommandData::AddArcName(const char *Name,const wchar *NameW)
++ #else
++ void CommandData::AddArcName(const char *Name)
++ #endif
+  {
++ #ifndef __BIONIC__
+    ArcNames->AddString(Name,NameW);
++ #else
++   ArcNames->AddString(Name);
++ #endif
+  }
+  
+! #ifndef __BIONIC__
+  bool CommandData::GetArcName(char *Name,wchar *NameW,int MaxSize)
++ #else
++ bool CommandData::GetArcName(char *Name,int MaxSize)
++ #endif
+  {
++ #ifndef __BIONIC__
+    if (!ArcNames->GetString(Name,NameW,NM))
++ #else
++   if (!ArcNames->GetString(Name,NM))
++ #endif
+      return(false);
+    return(true);
+  }
+diff -crB orig/cmddata.hpp src/cmddata.hpp
+*** orig/cmddata.hpp	2013-12-28 19:18:09.104077946 +0100
+--- src/cmddata.hpp	2013-12-28 19:18:09.112077946 +0100
+***************
+*** 10,16 ****
+--- 10,20 ----
+  {
+    private:
+      void ProcessSwitchesString(char *Str);
++ #ifndef __BIONIC__
+      void ProcessSwitch(const char *Switch,const wchar *SwitchW=NULL);
++ #else
++     void ProcessSwitch(const char *Switch);
++ #endif
+      void BadSwitch(const char *Switch);
+      bool ExclCheckArgs(StringList *Args,bool Dir,char *CheckName,bool CheckFullPath,int MatchMode);
+      uint GetExclAttr(const char *Str);
+***************
+*** 27,33 ****
+--- 31,41 ----
+  
+      void PreprocessCommandLine(int argc, char *argv[]);
+      void ParseCommandLine(int argc, char *argv[]);
++ #ifndef __BIONIC__
+      void ParseArg(char *Arg,wchar *ArgW);
++ #else
++     void ParseArg(char *Arg);
++ #endif
+      void ParseDone();
+      void ParseEnvVar();
+      void ReadConfig();
+***************
+*** 42,58 ****
+--- 50,75 ----
+      bool AnyFiltersActive();
+      int IsProcessFile(FileHeader &NewLhd,bool *ExactMatch=NULL,int MatchType=MATCH_WILDSUBPATH);
+      void ProcessCommand();
++ #ifndef __BIONIC__
+      void AddArcName(const char *Name,const wchar *NameW);
+      bool GetArcName(char *Name,wchar *NameW,int MaxSize);
++ #else
++     void AddArcName(const char *Name);
++     bool GetArcName(char *Name,int MaxSize);
++ #endif
+      bool CheckWinSize();
+  
+      int GetRecoverySize(const char *Str,int DefSize);
+  
+      char Command[NM+16];
++ #ifndef __BIONIC__
+      wchar CommandW[NM+16];
++ #endif
+  
+      char ArcName[NM];
++ #ifndef __BIONIC__
+      wchar ArcNameW[NM];
++ #endif
+  
+      StringList *FileArgs;
+      StringList *ExclArgs;
+diff -crB orig/consio.cpp src/consio.cpp
+*** orig/consio.cpp	2013-12-28 19:18:09.104077946 +0100
+--- src/consio.cpp	2013-12-28 19:18:09.112077946 +0100
+***************
+*** 4,9 ****
+--- 4,13 ----
+  #include "log.cpp"
+  #endif
+  
++ #ifdef __BIONIC__
++ #include <termios.h>
++ #endif
++ 
+  static int KbdAnsi(char *Addr,int Size);
+  
+  #if !defined(GUI) && !defined(SILENT)
+***************
+*** 121,127 ****
+--- 125,135 ----
+  
+  #ifndef SILENT
+  #ifndef GUI
++ #ifndef __BIONIC__
+  void GetPasswordText(wchar *Str,uint MaxLength)
++ #else
++ void GetPasswordText(char *Str,uint MaxLength)
++ #endif
+  {
+    if (MaxLength==0)
+      return;
+***************
+*** 146,153 ****
+--- 154,167 ----
+  #else
+    strncpyz(StrA,getpass(""),ASIZE(StrA));
+  #endif
++ 
++ #ifndef __BIONIC__
+    CharToWide(StrA,Str,MaxLength);
++ #else
++   strncpyz(Str,StrA,MaxLength);
++ #endif
+    cleandata(StrA,sizeof(StrA));
++ 
+  #endif
+    Str[MaxLength-1]=0;
+    RemoveLF(Str);
+***************
+*** 152,164 ****
+--- 166,213 ----
+    Str[MaxLength-1]=0;
+    RemoveLF(Str);
+  }
++ 
++ #if !defined(_EMX) && !defined(_BEOS) && !defined(__sparc) && !defined(sparc) && !defined (__VMS)
++ #ifdef __BIONIC__
++ const char *getpass(const char *prompt) {
++     struct termios oflags, nflags;
++     static char password[64];
++ 
++     // disabling echo
++     tcgetattr(fileno(stdin), &oflags);
++     nflags = oflags;
++     nflags.c_lflag &= ~ECHO;
++     nflags.c_lflag |= ECHONL;
++ 
++     if (tcsetattr(fileno(stdin), TCSANOW, &nflags) != 0) {
++         return "\0";
++     }
++ 
++     mprintf("%s", prompt);
++     fgets(password, sizeof(password), stdin);
++     password[strlen(password) - 1] = 0;
++ 
++     // restore terminal
++     if (tcsetattr(fileno(stdin), TCSANOW, &oflags) != 0) {
++         return "\0";
++     }
++ 
++     return password;
++ }
++ #endif
++ #endif
++ 
+  #endif
+  #endif
+  
+  
+  #ifndef SILENT
++ #ifndef __BIONIC__
+  bool GetPassword(PASSWORD_TYPE Type,const char *FileName,const wchar *FileNameW,
+                   SecPassword *Password)
++ #else
++ bool GetPassword(PASSWORD_TYPE Type,const char *FileName, SecPassword *Password)
++ #endif
+  {
+    Alarm();
+    while (true)
+***************
+*** 177,193 ****
+          strcat(PromptStr,NameOnly);
+      }
+      eprintf("\n%s: ",PromptStr);
+! 
+      wchar PlainPsw[MAXPASSWORD];
+      GetPasswordText(PlainPsw,ASIZE(PlainPsw));
+      if (*PlainPsw==0 && Type==PASSWORD_GLOBAL)
+        return(false);
+      if (Type==PASSWORD_GLOBAL)
+      {
+        eprintf(St(MReAskPsw));
+        wchar CmpStr[MAXPASSWORD];
+        GetPasswordText(CmpStr,ASIZE(CmpStr));
+        if (*CmpStr==0 || wcscmp(PlainPsw,CmpStr)!=0)
+        {
+          eprintf(St(MNotMatchPsw));
+          cleandata(PlainPsw,sizeof(PlainPsw));
+--- 226,253 ----
+          strcat(PromptStr,NameOnly);
+      }
+      eprintf("\n%s: ",PromptStr);
+! #ifndef __BIONIC__
+      wchar PlainPsw[MAXPASSWORD];
++ #else
++     char PlainPsw[MAXPASSWORD];
++ #endif
+      GetPasswordText(PlainPsw,ASIZE(PlainPsw));
+      if (*PlainPsw==0 && Type==PASSWORD_GLOBAL)
+        return(false);
+      if (Type==PASSWORD_GLOBAL)
+      {
+        eprintf(St(MReAskPsw));
++ #ifndef __BIONIC__
+        wchar CmpStr[MAXPASSWORD];
++ #else
++       char CmpStr[MAXPASSWORD];
++ #endif
+        GetPasswordText(CmpStr,ASIZE(CmpStr));
++ #ifndef __BIONIC__
+        if (*CmpStr==0 || wcscmp(PlainPsw,CmpStr)!=0)
++ #else
++       if (*CmpStr==0 || strcmp(PlainPsw,CmpStr)!=0)
++ #endif
+        {
+          eprintf(St(MNotMatchPsw));
+          cleandata(PlainPsw,sizeof(PlainPsw));
+diff -crB orig/consio.hpp src/consio.hpp
+*** orig/consio.hpp	2013-12-28 19:18:09.104077946 +0100
+--- src/consio.hpp	2013-12-28 19:18:09.112077946 +0100
+***************
+*** 13,21 ****
+--- 13,29 ----
+    void mprintf(const char *fmt,...);
+    void eprintf(const char *fmt,...);
+    void Alarm();
++ #ifndef __BIONIC__
+    void GetPasswordText(wchar *Str,uint MaxLength);
+    bool GetPassword(PASSWORD_TYPE Type,const char *FileName,const wchar *FileNameW,SecPassword *Password);
++ #else
++   void GetPasswordText(char *Str,uint MaxLength);
++   bool GetPassword(PASSWORD_TYPE Type,const char *FileName,SecPassword *Password);
++ #endif
+    int Ask(const char *AskStr);
++ #ifdef __BIONIC__
++   const char *getpass(const char *prompt);
++ #endif
+  #endif
+  
+  void OutComment(char *Comment,size_t Size);
+***************
+*** 29,36 ****
+--- 37,49 ----
+      inline void eprintf(const char *fmt,...) {}
+    #endif
+    inline void Alarm() {}
++ #ifndef __BIONIC__
+    inline void GetPasswordText(wchar *Str,uint MaxLength) {}
+    inline bool GetPassword(PASSWORD_TYPE Type,const char *FileName,const wchar *FileNameW,SecPassword *Password) {return(false);}
++ #else
++   inline void GetPasswordText(char *Str,uint MaxLength) {}
++   inline bool GetPassword(PASSWORD_TYPE Type,const char *FileName,SecPassword *Password) {return(false);}
++ #endif
+    inline int Ask(const char *AskStr) {return(0);}
+  #endif
+  
+diff -crB orig/crypt.cpp src/crypt.cpp
+*** orig/crypt.cpp	2013-12-28 19:18:09.104077946 +0100
+--- src/crypt.cpp	2013-12-28 19:18:09.113077946 +0100
+***************
+*** 189,195 ****
+--- 189,199 ----
+  {
+    if (!Password->IsSet())
+      return;
++ #ifndef __BIONIC__
+    wchar PlainPsw[MAXPASSWORD];
++ #else
++   char PlainPsw[MAXPASSWORD];
++ #endif
+    Password->Get(PlainPsw,ASIZE(PlainPsw));
+    if (OldOnly)
+    {
+***************
+*** 200,206 ****
+--- 204,214 ----
+      memset(Psw,0,sizeof(Psw));
+  
+      // We need to use ASCII password for older encryption algorithms.
++ #ifndef __BIONIC__
+      WideToChar(PlainPsw,Psw,ASIZE(Psw));
++ #else
++     strncpyz(Psw,PlainPsw,ASIZE(Psw));
++ #endif
+      Psw[ASIZE(Psw)-1]=0;
+  
+      size_t PswLength=strlen(Psw);
+***************
+*** 243,251 ****
+--- 251,265 ----
+  
+    if (!Cached)
+    {
++ #ifndef __BIONIC__
+      byte RawPsw[2*MAXPASSWORD+SALT_SIZE];
+      WideToRaw(PlainPsw,RawPsw);
+      size_t RawLength=2*wcslen(PlainPsw);
++ #else
++     byte RawPsw[MAXPASSWORD+SALT_SIZE];
++     strncpyz((char*)RawPsw,PlainPsw,ASIZE((char*)RawPsw));
++     size_t RawLength=strlen(PlainPsw);
++ #endif
+      if (Salt!=NULL)
+      {
+        memcpy(RawPsw+RawLength,Salt,SALT_SIZE);
+diff -crB orig/crypt.hpp src/crypt.hpp
+*** orig/crypt.hpp	2013-12-28 19:18:09.104077946 +0100
+--- src/crypt.hpp	2013-12-28 19:18:09.113077946 +0100
+***************
+*** 9,15 ****
+--- 9,19 ----
+  #ifndef _SFX_RTL_
+    CryptKeyCacheItem()
+    {
++ #ifndef __BIONIC__
+      Password.Set(L"");
++ #else
++     Password.Set("");
++ #endif
+    }
+  
+    ~CryptKeyCacheItem()
+diff -crB orig/errhnd.cpp src/errhnd.cpp
+*** orig/errhnd.cpp	2013-12-28 19:18:09.105077946 +0100
+--- src/errhnd.cpp	2013-12-28 19:18:09.113077946 +0100
+***************
+*** 25,32 ****
+    Throw(RARX_MEMORY);
+  }
+  
+! 
+  void ErrorHandler::OpenError(const char *FileName,const wchar *FileNameW)
+  {
+  #ifndef SILENT
+    OpenErrorMsg(FileName);
+--- 25,35 ----
+    Throw(RARX_MEMORY);
+  }
+  
+! #ifndef __BIONIC__
+  void ErrorHandler::OpenError(const char *FileName,const wchar *FileNameW)
++ #else
++ void ErrorHandler::OpenError(const char *FileName)
++ #endif
+  {
+  #ifndef SILENT
+    OpenErrorMsg(FileName);
+***************
+*** 34,41 ****
+  #endif
+  }
+  
+! 
+  void ErrorHandler::CloseError(const char *FileName,const wchar *FileNameW)
+  {
+  #ifndef SILENT
+    if (!UserBreak)
+--- 37,47 ----
+  #endif
+  }
+  
+! #ifndef __BIONIC__
+  void ErrorHandler::CloseError(const char *FileName,const wchar *FileNameW)
++ #else
++ void ErrorHandler::CloseError(const char *FileName)
++ #endif
+  {
+  #ifndef SILENT
+    if (!UserBreak)
+***************
+*** 49,67 ****
+  #endif
+  }
+  
+! 
+  void ErrorHandler::ReadError(const char *FileName,const wchar *FileNameW)
+  {
+  #ifndef SILENT
+    ReadErrorMsg(NULL,NULL,FileName,FileNameW);
+  #endif
+  #if !defined(SILENT) || defined(RARDLL)
+    Throw(RARX_FATAL);
+  #endif
+  }
+  
+! 
+  bool ErrorHandler::AskRepeatRead(const char *FileName,const wchar *FileNameW)
+  {
+  #if !defined(SILENT) && !defined(SFX_MODULE) && !defined(_WIN_CE)
+    if (!Silent)
+--- 55,83 ----
+  #endif
+  }
+  
+! #ifndef __BIONIC__
+  void ErrorHandler::ReadError(const char *FileName,const wchar *FileNameW)
++ #else
++ void ErrorHandler::ReadError(const char *FileName)
++ #endif
+  {
+  #ifndef SILENT
++ #ifndef __BIONIC__
+    ReadErrorMsg(NULL,NULL,FileName,FileNameW);
++ #else
++   ReadErrorMsg(NULL,FileName);
++ #endif
+  #endif
+  #if !defined(SILENT) || defined(RARDLL)
+    Throw(RARX_FATAL);
+  #endif
+  }
+  
+! #ifndef __BIONIC__
+  bool ErrorHandler::AskRepeatRead(const char *FileName,const wchar *FileNameW)
++ #else
++ bool ErrorHandler::AskRepeatRead(const char *FileName)
++ #endif
+  {
+  #if !defined(SILENT) && !defined(SFX_MODULE) && !defined(_WIN_CE)
+    if (!Silent)
+***************
+*** 75,85 ****
+    return(false);
+  }
+  
+! 
+  void ErrorHandler::WriteError(const char *ArcName,const wchar *ArcNameW,const char *FileName,const wchar *FileNameW)
+  {
+  #ifndef SILENT
+    WriteErrorMsg(ArcName,ArcNameW,FileName,FileNameW);
+  #endif
+  #if !defined(SILENT) || defined(RARDLL)
+    Throw(RARX_WRITE);
+--- 91,108 ----
+    return(false);
+  }
+  
+! #ifndef __BIONIC__
+  void ErrorHandler::WriteError(const char *ArcName,const wchar *ArcNameW,const char *FileName,const wchar *FileNameW)
++ #else
++ void ErrorHandler::WriteError(const char *ArcName,const char *FileName)
++ #endif
+  {
+  #ifndef SILENT
++ #ifndef __BIONIC__
+    WriteErrorMsg(ArcName,ArcNameW,FileName,FileNameW);
++ #else
++   WriteErrorMsg(ArcName,FileName);
++ #endif
+  #endif
+  #if !defined(SILENT) || defined(RARDLL)
+    Throw(RARX_WRITE);
+***************
+*** 100,107 ****
+  }
+  #endif
+  
+! 
+  bool ErrorHandler::AskRepeatWrite(const char *FileName,const wchar *FileNameW,bool DiskFull)
+  {
+  #if !defined(SILENT) && !defined(_WIN_CE)
+    if (!Silent)
+--- 123,133 ----
+  }
+  #endif
+  
+! #ifndef __BIONIC__
+  bool ErrorHandler::AskRepeatWrite(const char *FileName,const wchar *FileNameW,bool DiskFull)
++ #else
++ bool ErrorHandler::AskRepeatWrite(const char *FileName,bool DiskFull)
++ #endif
+  {
+  #if !defined(SILENT) && !defined(_WIN_CE)
+    if (!Silent)
+***************
+*** 115,122 ****
+    return(false);
+  }
+  
+! 
+  void ErrorHandler::SeekError(const char *FileName,const wchar *FileNameW)
+  {
+  #ifndef SILENT
+    if (!UserBreak)
+--- 141,151 ----
+    return(false);
+  }
+  
+! #ifndef __BIONIC__
+  void ErrorHandler::SeekError(const char *FileName,const wchar *FileNameW)
++ #else
++ void ErrorHandler::SeekError(const char *FileName)
++ #endif
+  {
+  #ifndef SILENT
+    if (!UserBreak)
+***************
+*** 147,160 ****
+  #endif
+  }
+  
+! 
+  void ErrorHandler::OpenErrorMsg(const char *FileName,const wchar *FileNameW)
+  {
+!   OpenErrorMsg(NULL,NULL,FileName,FileNameW);
+  }
+  
+! 
+  void ErrorHandler::OpenErrorMsg(const char *ArcName,const wchar *ArcNameW,const char *FileName,const wchar *FileNameW)
+  {
+  #ifndef SILENT
+    if (FileName!=NULL)
+--- 176,195 ----
+  #endif
+  }
+  
+! #ifndef __BIONIC__
+  void ErrorHandler::OpenErrorMsg(const char *FileName,const wchar *FileNameW)
++ #else
++ void ErrorHandler::OpenErrorMsg(const char *FileName)
++ #endif
+  {
+!   OpenErrorMsg(NULL,FileName);
+  }
+  
+! #ifndef __BIONIC__
+  void ErrorHandler::OpenErrorMsg(const char *ArcName,const wchar *ArcNameW,const char *FileName,const wchar *FileNameW)
++ #else
++ void ErrorHandler::OpenErrorMsg(const char *ArcName,const char *FileName)
++ #endif
+  {
+  #ifndef SILENT
+    if (FileName!=NULL)
+***************
+*** 164,177 ****
+  #endif
+  }
+  
+! 
+  void ErrorHandler::CreateErrorMsg(const char *FileName,const wchar *FileNameW)
+  {
+    CreateErrorMsg(NULL,NULL,FileName,FileNameW);
+  }
+  
+! 
+  void ErrorHandler::CreateErrorMsg(const char *ArcName,const wchar *ArcNameW,const char *FileName,const wchar *FileNameW)
+  {
+  #ifndef SILENT
+    if (FileName!=NULL)
+--- 199,222 ----
+  #endif
+  }
+  
+! #ifndef __BIONIC__
+  void ErrorHandler::CreateErrorMsg(const char *FileName,const wchar *FileNameW)
++ #else
++ void ErrorHandler::CreateErrorMsg(const char *FileName)
++ #endif
+  {
++ #ifndef __BIONIC__
+    CreateErrorMsg(NULL,NULL,FileName,FileNameW);
++ #else
++   CreateErrorMsg(NULL,FileName);
++ #endif
+  }
+  
+! #ifndef __BIONIC__
+  void ErrorHandler::CreateErrorMsg(const char *ArcName,const wchar *ArcNameW,const char *FileName,const wchar *FileNameW)
++ #else
++ void ErrorHandler::CreateErrorMsg(const char *ArcName,const char *FileName)
++ #endif
+  {
+  #ifndef SILENT
+    if (FileName!=NULL)
+***************
+*** 188,194 ****
+--- 233,243 ----
+  
+  
+  // Check the path length and display the error message if it is too long.
++ #ifndef __BIONIC__
+  void ErrorHandler::CheckLongPathErrMsg(const char *FileName,const wchar *FileNameW)
++ #else
++ void ErrorHandler::CheckLongPathErrMsg(const char *FileName)
++ #endif
+  {
+  #if defined(_WIN_ALL) && !defined(_WIN_CE) && !defined (SILENT) && defined(MAX_PATH)
+    if (GetLastError()==ERROR_PATH_NOT_FOUND)
+***************
+*** 210,217 ****
+  #endif
+  }
+  
+! 
+  void ErrorHandler::ReadErrorMsg(const char *ArcName,const wchar *ArcNameW,const char *FileName,const wchar *FileNameW)
+  {
+  #ifndef SILENT
+    ErrMsg(ArcName,St(MErrRead),FileName);
+--- 259,269 ----
+  #endif
+  }
+  
+! #ifndef __BIONIC__
+  void ErrorHandler::ReadErrorMsg(const char *ArcName,const wchar *ArcNameW,const char *FileName,const wchar *FileNameW)
++ #else
++ void ErrorHandler::ReadErrorMsg(const char *ArcName,const char *FileName)
++ #endif
+  {
+  #ifndef SILENT
+    ErrMsg(ArcName,St(MErrRead),FileName);
+***************
+*** 219,226 ****
+  #endif
+  }
+  
+! 
+  void ErrorHandler::WriteErrorMsg(const char *ArcName,const wchar *ArcNameW,const char *FileName,const wchar *FileNameW)
+  {
+  #ifndef SILENT
+    ErrMsg(ArcName,St(MErrWrite),FileName);
+--- 271,281 ----
+  #endif
+  }
+  
+! #ifndef __BIONIC__
+  void ErrorHandler::WriteErrorMsg(const char *ArcName,const wchar *ArcNameW,const char *FileName,const wchar *FileNameW)
++ #else
++ void ErrorHandler::WriteErrorMsg(const char *ArcName,const char *FileName)
++ #endif
+  {
+  #ifndef SILENT
+    ErrMsg(ArcName,St(MErrWrite),FileName);
+diff -crB orig/errhnd.hpp src/errhnd.hpp
+*** orig/errhnd.hpp	2013-12-28 19:18:09.105077946 +0100
+--- src/errhnd.hpp	2013-12-28 19:18:09.113077946 +0100
+***************
+*** 2,9 ****
+--- 2,11 ----
+  #define _RAR_ERRHANDLER_
+  
+  #ifndef SFX_MODULE
++ #ifndef __BIONIC__
+  #define ALLOW_EXCEPTIONS
+  #endif
++ #endif
+  
+  enum RAR_EXIT // RAR exit code.
+  { 
+***************
+*** 35,40 ****
+--- 37,43 ----
+      ErrorHandler();
+      void Clean();
+      void MemoryError();
++ #ifndef __BIONIC__
+      void OpenError(const char *FileName,const wchar *FileNameW);
+      void CloseError(const char *FileName,const wchar *FileNameW);
+      void ReadError(const char *FileName,const wchar *FileNameW);
+***************
+*** 43,50 ****
+--- 46,64 ----
+      void WriteErrorFAT(const char *FileName,const wchar *FileNameW);
+      bool AskRepeatWrite(const char *FileName,const wchar *FileNameW,bool DiskFull);
+      void SeekError(const char *FileName,const wchar *FileNameW);
++ #else
++     void OpenError(const char *FileName);
++     void CloseError(const char *FileName);
++     void ReadError(const char *FileName);
++     bool AskRepeatRead(const char *FileName);
++     void WriteError(const char *ArcName,const char *FileName);
++     void WriteErrorFAT(const char *FileName);
++     bool AskRepeatWrite(const char *FileName,bool DiskFull);
++     void SeekError(const char *FileName);
++ #endif
+      void GeneralErrMsg(const char *Msg);
+      void MemoryErrorMsg();
++ #ifndef __BIONIC__
+      void OpenErrorMsg(const char *FileName,const wchar *FileNameW=NULL);
+      void OpenErrorMsg(const char *ArcName,const wchar *ArcNameW,const char *FileName,const wchar *FileNameW);
+      void CreateErrorMsg(const char *FileName,const wchar *FileNameW=NULL);
+***************
+*** 52,57 ****
+--- 66,80 ----
+      void CheckLongPathErrMsg(const char *FileName,const wchar *FileNameW);
+      void ReadErrorMsg(const char *ArcName,const wchar *ArcNameW,const char *FileName,const wchar *FileNameW);
+      void WriteErrorMsg(const char *ArcName,const wchar *ArcNameW,const char *FileName,const wchar *FileNameW);
++ #else
++     void OpenErrorMsg(const char *FileName);
++     void OpenErrorMsg(const char *ArcName,const char *FileName);
++     void CreateErrorMsg(const char *FileName);
++     void CreateErrorMsg(const char *ArcName,const char *FileName);
++     void CheckLongPathErrMsg(const char *FileName);
++     void ReadErrorMsg(const char *ArcName,const char *FileName);
++     void WriteErrorMsg(const char *ArcName,const char *FileName);
++ #endif
+      void Exit(RAR_EXIT ExitCode);
+      void SetErrorCode(RAR_EXIT Code);
+      RAR_EXIT GetErrorCode() {return(ExitCode);}
+diff -crB orig/extinfo.cpp src/extinfo.cpp
+*** orig/extinfo.cpp	2013-12-28 19:18:09.105077946 +0100
+--- src/extinfo.cpp	2013-12-28 19:18:09.113077946 +0100
+***************
+*** 17,23 ****
+--- 17,27 ----
+  
+  
+  #ifndef SFX_MODULE
++ #ifndef __BIONIC__
+  void SetExtraInfo(CommandData *Cmd,Archive &Arc,char *Name,wchar *NameW)
++ #else
++ void SetExtraInfo(CommandData *Cmd,Archive &Arc,char *Name)
++ #endif
+  {
+    switch(Arc.SubBlockHead.SubType)
+    {
+***************
+*** 52,59 ****
+  }
+  #endif
+  
+! 
+  void SetExtraInfoNew(CommandData *Cmd,Archive &Arc,char *Name,wchar *NameW)
+  {
+  #if defined(_EMX) && !defined(_DJGPP)
+    if (Cmd->ProcessEA && Arc.SubHead.CmpName(SUBHEAD_TYPE_OS2EA))
+--- 56,66 ----
+  }
+  #endif
+  
+! #ifndef __BIONIC__
+  void SetExtraInfoNew(CommandData *Cmd,Archive &Arc,char *Name,wchar *NameW)
++ #else
++ void SetExtraInfoNew(CommandData *Cmd,Archive &Arc,char *Name)
++ #endif
+  {
+  #if defined(_EMX) && !defined(_DJGPP)
+    if (Cmd->ProcessEA && Arc.SubHead.CmpName(SUBHEAD_TYPE_OS2EA))
+diff -crB orig/extinfo.hpp src/extinfo.hpp
+*** orig/extinfo.hpp	2013-12-28 19:18:09.105077946 +0100
+--- src/extinfo.hpp	2013-12-28 19:18:09.113077946 +0100
+***************
+*** 1,8 ****
+  #ifndef _RAR_EXTINFO_
+  #define _RAR_EXTINFO_
+  
+! 
+  void SetExtraInfo(CommandData *Cmd,Archive &Arc,char *Name,wchar *NameW);
+  void SetExtraInfoNew(CommandData *Cmd,Archive &Arc,char *Name,wchar *NameW);
+  
+  #endif
+--- 1,12 ----
+  #ifndef _RAR_EXTINFO_
+  #define _RAR_EXTINFO_
+  
+! #ifndef __BIONIC__
+  void SetExtraInfo(CommandData *Cmd,Archive &Arc,char *Name,wchar *NameW);
+  void SetExtraInfoNew(CommandData *Cmd,Archive &Arc,char *Name,wchar *NameW);
++ #else
++ void SetExtraInfo(CommandData *Cmd,Archive &Arc,char *Name);
++ void SetExtraInfoNew(CommandData *Cmd,Archive &Arc,char *Name);
++ #endif
+  
+  #endif
+diff -crB orig/extract.cpp src/extract.cpp
+*** orig/extract.cpp	2013-12-28 19:18:09.105077946 +0100
+--- src/extract.cpp	2013-12-28 19:18:09.113077946 +0100
+***************
+*** 3,15 ****
+--- 3,23 ----
+  CmdExtract::CmdExtract()
+  {
+    *ArcName=0; 
++ #ifndef __BIONIC__
+    *ArcNameW=0;
++ #endif
+  
+    *DestFileName=0;
++ #ifndef __BIONIC__
+    *DestFileNameW=0;
++ #endif
+  
+    TotalFileCount=0;
++ #ifndef __BIONIC__
+    Password.Set(L"");
++ #else
++   Password.Set("");
++ #endif
+    Unp=new Unpack(&DataIO);
+    Unp->Init();
+  }
+***************
+*** 27,38 ****
+--- 35,55 ----
+    DataIO.SetCurrentCommand(*Cmd->Command);
+  
+    FindData FD;
++ #ifndef __BIONIC__
+    while (Cmd->GetArcName(ArcName,ArcNameW,ASIZE(ArcName)))
+      if (FindFile::FastFind(ArcName,ArcNameW,&FD))
++ #else
++   while (Cmd->GetArcName(ArcName,ASIZE(ArcName)))
++     if (FindFile::FastFind(ArcName,&FD))
++ #endif
+        DataIO.TotalArcSize+=FD.Size;
+  
+    Cmd->ArcNames->Rewind();
++ #ifndef __BIONIC__
+    while (Cmd->GetArcName(ArcName,ArcNameW,ASIZE(ArcName)))
++ #else
++   while (Cmd->GetArcName(ArcName,ASIZE(ArcName)))
++ #endif
+    {
+      while (true)
+      {
+***************
+*** 48,54 ****
+--- 65,75 ----
+        if (Code!=EXTRACT_ARC_REPEAT)
+          break;
+      }
++ #ifndef __BIONIC__
+      if (FindFile::FastFind(ArcName,ArcNameW,&FD))
++ #else
++     if (FindFile::FastFind(ArcName,&FD))
++ #endif
+        DataIO.ProcessedArcSize+=FD.Size;
+    }
+  
+***************
+*** 103,109 ****
+--- 124,134 ----
+  EXTRACT_ARC_CODE CmdExtract::ExtractArchive(CommandData *Cmd)
+  {
+    Archive Arc(Cmd);
++ #ifndef __BIONIC__
+    if (!Arc.WOpen(ArcName,ArcNameW))
++ #else
++   if (!Arc.WOpen(ArcName))
++ #endif
+    {
+      ErrHandler.SetErrorCode(RARX_OPEN);
+      return(EXTRACT_ARC_NEXT);
+***************
+*** 133,139 ****
+--- 158,168 ----
+      // and current volume is not first in set and first volume is present
+      // and specified too, let's skip the current volume.
+      if (stricomp(ArcName,FirstVolName)!=0 && FileExist(FirstVolName) &&
++ #ifndef __BIONIC__
+          Cmd->ArcNames->Search(FirstVolName,NULL,false))
++ #else
++         Cmd->ArcNames->Search(FirstVolName,false))
++ #endif
+        return(EXTRACT_ARC_NEXT);
+    }
+  #endif
+***************
+*** 149,164 ****
+--- 178,203 ----
+      wchar NextNameW[NM];
+  
+      strcpy(NextName,Arc.FileName);
++ #ifndef __BIONIC__
+      wcscpy(NextNameW,Arc.FileNameW);
++ #endif
+  
+      while (true)
+      {
+        // First volume is already added to DataIO.TotalArcSize 
+        // in initial TotalArcSize calculation in DoExtract.
+        // So we skip it and start from second volume.
++ #ifndef __BIONIC__
+        NextVolumeName(NextName,NextNameW,ASIZE(NextName),(Arc.NewMhd.Flags & MHD_NEWNUMBERING)==0 || Arc.OldFormat);
++ #else
++       NextVolumeName(NextName,ASIZE(NextName),(Arc.NewMhd.Flags & MHD_NEWNUMBERING)==0 || Arc.OldFormat);
++ #endif
+        struct FindData FD;
++ #ifndef __BIONIC__
+        if (FindFile::FastFind(NextName,NextNameW,&FD))
++ #else
++       if (FindFile::FastFind(NextName,&FD))
++ #endif
+          VolumeSetSize+=FD.Size;
+        else
+          break;
+***************
+*** 202,209 ****
+--- 241,253 ----
+          // of current volume and all volumes after it and add the size
+          // of new (first) volume.
+          FindData OldArc,NewArc;
++ #ifndef __BIONIC__
+          if (FindFile::FastFind(Arc.FileName,Arc.FileNameW,&OldArc) &&
+              FindFile::FastFind(ArcName,ArcNameW,&NewArc))
++ #else
++         if (FindFile::FastFind(Arc.FileName,&OldArc) &&
++             FindFile::FastFind(ArcName,&NewArc))
++ #endif
+            DataIO.TotalArcSize-=VolumeSetSize+OldArc.Size-NewArc.Size;
+          return(EXTRACT_ARC_REPEAT);
+        }
+***************
+*** 241,247 ****
+--- 285,295 ----
+        SignatureFound=true;
+  #if !defined(SFX_MODULE) && !defined(_WIN_CE)
+      if (HeadType==SUB_HEAD && PrevExtracted)
++ #ifndef __BIONIC__
+        SetExtraInfo(Cmd,Arc,DestFileName,*DestFileNameW ? DestFileNameW:NULL);
++ #else
++       SetExtraInfo(Cmd,Arc,DestFileName);
++ #endif
+  #endif
+      if (HeadType==NEWSUB_HEAD)
+      {
+***************
+*** 249,255 ****
+--- 297,307 ----
+          SignatureFound=true;
+  #if !defined(NOSUBBLOCKS) && !defined(_WIN_CE)
+        if (PrevExtracted)
++ #ifndef __BIONIC__
+          SetExtraInfoNew(Cmd,Arc,DestFileName,*DestFileNameW ? DestFileNameW:NULL);
++ #else
++         SetExtraInfoNew(Cmd,Arc,DestFileName);
++ #endif
+  #endif
+      }
+      if (HeadType==ENDARC_HEAD)
+***************
+*** 297,303 ****
+--- 349,359 ----
+      if (ExactMatch)
+      {
+        Cmd->FileArgs->Rewind();
++ #ifndef __BIONIC__
+        if (Cmd->FileArgs->GetString(Cmd->ArcPath,NULL,sizeof(Cmd->ArcPath),MatchNumber-1))
++ #else
++       if (Cmd->FileArgs->GetString(Cmd->ArcPath,sizeof(Cmd->ArcPath),MatchNumber-1))
++ #endif
+          *PointToName(Cmd->ArcPath)=0;
+      }
+    }
+***************
+*** 305,316 ****
+--- 361,377 ----
+    if (ExactMatch && !EqualNames)
+      AllMatchesExact=false;
+  
++ #ifndef __BIONIC__
+  #ifdef UNICODE_SUPPORTED
+    bool WideName=(Arc.NewLhd.Flags & LHD_UNICODE) && UnicodeEnabled();
+  #else
+    bool WideName=false;
+  #endif
++ #else
++   bool WideName=false;
++ #endif
+  
++ #ifndef __BIONIC__
+  #ifdef _APPLE
+    if (WideName)
+    {
+***************
+*** 335,340 ****
+--- 396,402 ----
+        strcpy(ArcFileName,Name);
+    }
+  #endif
++ #endif
+  
+    ConvertPath(ArcFileName,ArcFileName);
+  
+***************
+*** 347,355 ****
+--- 409,425 ----
+      {
+        if (Cmd->VersionControl==0)
+          ExactMatch=false;
++ #ifndef __BIONIC__
+        int Version=ParseVersionFileName(ArcFileName,ArcFileNameW,false);
++ #else
++       int Version=ParseVersionFileName(ArcFileName,false);
++ #endif
+        if (Cmd->VersionControl-1==Version)
++ #ifndef __BIONIC__
+          ParseVersionFileName(ArcFileName,ArcFileNameW,true);
++ #else
++         ParseVersionFileName(ArcFileName,true);
++ #endif
+        else
+          ExactMatch=false;
+      }
+***************
+*** 368,377 ****
+--- 438,453 ----
+  
+      bool NewNumbering=(Arc.NewMhd.Flags & MHD_NEWNUMBERING)!=0;
+      VolNameToFirstName(ArcName,ArcName,NewNumbering);
++ #ifndef __BIONIC__
+      if (*ArcNameW!=0)
+        VolNameToFirstName(ArcNameW,ArcNameW,NewNumbering);
++ #endif
+  
++ #ifndef __BIONIC__
+      if (stricomp(ArcName,CurVolName)!=0 && FileExist(ArcName,ArcNameW))
++ #else
++     if (stricomp(ArcName,CurVolName)!=0 && FileExist(ArcName))
++ #endif
+      {
+        // If first volume name does not match the current name and if
+        // such volume name really exists, let's unpack from this first volume.
+***************
+*** 384,390 ****
+--- 460,470 ----
+        ReconstructDone=true;
+  
+        RecVolumes RecVol;
++ #ifndef __BIONIC__
+        if (RecVol.Restore(Cmd,Arc.FileName,Arc.FileNameW,true))
++ #else
++       if (RecVol.Restore(Cmd,Arc.FileName,true))
++ #endif
+        {
+          Repeat=true;
+          return(false);
+***************
+*** 455,461 ****
+--- 535,545 ----
+          Password=Cmd->Password;
+  
+  #else
++ #ifndef __BIONIC__
+          if (!GetPassword(PASSWORD_FILE,ArcFileName,ArcFileNameW,&Password))
++ #else
++         if (!GetPassword(PASSWORD_FILE,ArcFileName,&Password))
++ #endif
+          {
+            PasswordCancelled=true;
+            return(false);
+***************
+*** 472,478 ****
+--- 556,566 ----
+              case -1:
+                ErrHandler.Exit(RARX_USERBREAK);
+              case 2:
++ #ifndef __BIONIC__
+                if (!GetPassword(PASSWORD_FILE,ArcFileName,ArcFileNameW,&Password))
++ #else
++               if (!GetPassword(PASSWORD_FILE,ArcFileName,&Password))
++ #endif
+                {
+                  return(false);
+                }
+***************
+*** 485,494 ****
+--- 573,584 ----
+  #endif
+  
+  #ifndef SFX_MODULE
++ #ifndef __BIONIC__
+      if (*Cmd->ExtrPath==0 && *Cmd->ExtrPathW!=0)
+        WideToChar(Cmd->ExtrPathW,DestFileName);
+      else
+  #endif
++ #endif
+        strcpy(DestFileName,Cmd->ExtrPath);
+  
+  
+***************
+*** 548,553 ****
+--- 638,644 ----
+          }
+      }
+  
++ #ifndef __BIONIC__
+  #ifndef SFX_MODULE
+      if (!WideName && *Cmd->ExtrPathW!=0)
+      {
+***************
+*** 603,615 ****
+--- 694,711 ----
+      }
+      else
+        *DestFileNameW=0;
++ #endif
+  
+      ExtrFile=!SkipSolid && !EmptyName && (Arc.NewLhd.Flags & LHD_SPLIT_BEFORE)==0;
+  
+      if ((Cmd->FreshFiles || Cmd->UpdateFiles) && (Command=='E' || Command=='X'))
+      {
+        struct FindData FD;
++ #ifndef __BIONIC__
+        if (FindFile::FastFind(DestFileName,DestNameW,&FD))
++ #else
++       if (FindFile::FastFind(DestFileName,&FD))
++ #endif
+        {
+          if (FD.mtime >= Arc.NewLhd.mtime)
+          {
+***************
+*** 698,720 ****
+--- 794,834 ----
+  #endif
+            return(true);
+          }
++ #ifndef __BIONIC__
+          MKDIR_CODE MDCode=MakeDir(DestFileName,DestNameW,!Cmd->IgnoreGeneralAttr,Arc.NewLhd.FileAttr);
++ #else
++         MKDIR_CODE MDCode=MakeDir(DestFileName,!Cmd->IgnoreGeneralAttr,Arc.NewLhd.FileAttr);
++ #endif
+          bool DirExist=false;
+          if (MDCode!=MKDIR_SUCCESS)
+          {
++ #ifndef __BIONIC__
+            DirExist=FileExist(DestFileName,DestNameW);
+            if (DirExist && !IsDir(GetFileAttr(DestFileName,DestNameW)))
++ #else
++           DirExist=FileExist(DestFileName);
++           if (DirExist && !IsDir(GetFileAttr(DestFileName)))
++ #endif
+            {
+              // File with name same as this directory exists. Propose user
+              // to overwrite it.
+              bool UserReject;
++ #ifndef __BIONIC__
+              FileCreate(Cmd,NULL,DestFileName,DestNameW,Cmd->Overwrite,&UserReject,Arc.NewLhd.FullUnpSize,Arc.NewLhd.FileTime);
++ #else
++             FileCreate(Cmd,NULL,DestFileName,Cmd->Overwrite,&UserReject,Arc.NewLhd.FullUnpSize,Arc.NewLhd.FileTime);
++ #endif
+              DirExist=false;
+            }
+            if (!DirExist)
+            {
++ #ifndef __BIONIC__
+              CreatePath(DestFileName,DestNameW,true);
+              MDCode=MakeDir(DestFileName,DestNameW,!Cmd->IgnoreGeneralAttr,Arc.NewLhd.FileAttr);
++ #else
++             CreatePath(DestFileName,true);
++             MDCode=MakeDir(DestFileName,!Cmd->IgnoreGeneralAttr,Arc.NewLhd.FileAttr);
++ #endif
+            }
+          }
+          if (MDCode==MKDIR_SUCCESS)
+***************
+*** 729,741 ****
+--- 843,863 ----
+            if (DirExist)
+            {
+              if (!Cmd->IgnoreGeneralAttr)
++ #ifndef __BIONIC__
+                SetFileAttr(DestFileName,DestNameW,Arc.NewLhd.FileAttr);
++ #else
++               SetFileAttr(DestFileName,Arc.NewLhd.FileAttr);
++ #endif
+              PrevExtracted=true;
+            }
+            else
+            {
+              Log(Arc.FileName,St(MExtrErrMkDir),DestFileName);
++ #ifndef __BIONIC__
+              ErrHandler.CheckLongPathErrMsg(DestFileName,DestNameW);
++ #else
++             ErrHandler.CheckLongPathErrMsg(DestFileName);
++ #endif
+              ErrHandler.SysErrMsg();
+  #ifdef RARDLL
+              Cmd->DllError=ERAR_ECREATE;
+***************
+*** 749,758 ****
+--- 871,887 ----
+                (Arc.NewLhd.FileAttr & FILE_ATTRIBUTE_COMPRESSED)!=0 && WinNT())
+              SetFileCompression(DestFileName,DestNameW,true);
+  #endif
++ #ifndef __BIONIC__
+            SetDirTime(DestFileName,DestNameW,
+              Cmd->xmtime==EXTTIME_NONE ? NULL:&Arc.NewLhd.mtime,
+              Cmd->xctime==EXTTIME_NONE ? NULL:&Arc.NewLhd.ctime,
+              Cmd->xatime==EXTTIME_NONE ? NULL:&Arc.NewLhd.atime);
++ #else
++           SetDirTime(DestFileName,
++             Cmd->xmtime==EXTTIME_NONE ? NULL:&Arc.NewLhd.mtime,
++             Cmd->xctime==EXTTIME_NONE ? NULL:&Arc.NewLhd.ctime,
++             Cmd->xatime==EXTTIME_NONE ? NULL:&Arc.NewLhd.atime);
++ #endif
+          }
+          return(true);
+        }
+***************
+*** 769,799 ****
+--- 898,951 ----
+            bool UserReject;
+            // Specify "write only" mode to avoid OpenIndiana NAS problems
+            // with SetFileTime and read+write files.
++ #ifndef __BIONIC__
+            if (!FileCreate(Cmd,&CurFile,DestFileName,DestNameW,Cmd->Overwrite,&UserReject,Arc.NewLhd.FullUnpSize,Arc.NewLhd.FileTime,true))
++ #else
++           if (!FileCreate(Cmd,&CurFile,DestFileName,Cmd->Overwrite,&UserReject,Arc.NewLhd.FullUnpSize,Arc.NewLhd.FileTime,true))
++ #endif
+            {
+              ExtrFile=false;
+              if (!UserReject)
+              {
++ #ifndef __BIONIC__
+                ErrHandler.CreateErrorMsg(Arc.FileName,Arc.FileNameW,DestFileName,DestFileNameW);
++ #else
++               ErrHandler.CreateErrorMsg(Arc.FileName,DestFileName);
++ #endif
+                ErrHandler.SetErrorCode(RARX_CREATE);
+  #ifdef RARDLL
+                Cmd->DllError=ERAR_ECREATE;
+  #endif
++ #ifndef __BIONIC__
+                if (!IsNameUsable(DestFileName) && (!WideName || !IsNameUsable(DestNameW)))
++ #else
++               if (!IsNameUsable(DestFileName))
++ #endif
+                {
+                  Log(Arc.FileName,St(MCorrectingName));
+                  char OrigName[ASIZE(DestFileName)];
++ #ifndef __BIONIC__
+                  wchar OrigNameW[ASIZE(DestFileNameW)];
++ #endif
+                  strncpyz(OrigName,DestFileName,ASIZE(OrigName));
++ #ifndef __BIONIC__
+                  wcsncpyz(OrigNameW,NullToEmpty(DestNameW),ASIZE(OrigNameW));
++ #endif
+  
+                  MakeNameUsable(DestFileName,true);
+  
++ #ifndef __BIONIC__
+                  if (WideName)
+                    MakeNameUsable(DestNameW,true);
++ #endif
+  
++ #ifndef __BIONIC__
+                  CreatePath(DestFileName,DestNameW,true);
+                  if (FileCreate(Cmd,&CurFile,DestFileName,DestNameW,Cmd->Overwrite,&UserReject,Arc.NewLhd.FullUnpSize,Arc.NewLhd.FileTime,true))
++ #else
++                 CreatePath(DestFileName,true);
++                 if (FileCreate(Cmd,&CurFile,DestFileName,Cmd->Overwrite,&UserReject,Arc.NewLhd.FullUnpSize,Arc.NewLhd.FileTime,true))
++ #endif
+                  {
+  #ifndef SFX_MODULE
+                    Log(Arc.FileName,St(MRenaming),OrigName,DestFileName);
+***************
+*** 801,807 ****
+--- 953,963 ----
+                    ExtrFile=true;
+                  }
+                  else
++ #ifndef __BIONIC__
+                    ErrHandler.CreateErrorMsg(Arc.FileName,Arc.FileNameW,DestFileName,DestFileNameW);
++ #else
++                   ErrHandler.CreateErrorMsg(Arc.FileName,DestFileName);
++ #endif
+                }
+              }
+            }
+***************
+*** 823,829 ****
+--- 979,989 ----
+          if (!TestMode && Command!='P' && CurFile.IsDevice())
+          {
+            Log(Arc.FileName,St(MInvalidName),DestFileName);
++ #ifndef __BIONIC__
+            ErrHandler.WriteError(Arc.FileName,Arc.FileNameW,DestFileName,DestFileNameW);
++ #else
++           ErrHandler.WriteError(Arc.FileName,DestFileName);
++ #endif
+          }
+          TotalFileCount++;
+        }
+***************
+*** 989,995 ****
+--- 1149,1159 ----
+              Cmd->xmtime==EXTTIME_NONE ? NULL:&Arc.NewLhd.mtime,
+              Cmd->xatime==EXTTIME_NONE ? NULL:&Arc.NewLhd.atime);
+            if (!Cmd->IgnoreGeneralAttr)
++ #ifndef __BIONIC__
+              SetFileAttr(CurFile.FileName,CurFile.FileNameW,Arc.NewLhd.FileAttr);
++ #else
++             SetFileAttr(CurFile.FileName,Arc.NewLhd.FileAttr);
++ #endif
+            PrevExtracted=true;
+          }
+        }
+diff -crB orig/extract.hpp src/extract.hpp
+*** orig/extract.hpp	2013-12-28 19:18:09.105077946 +0100
+--- src/extract.hpp	2013-12-28 19:18:09.114077946 +0100
+***************
+*** 26,38 ****
+--- 26,42 ----
+      bool AnySolidDataUnpackedWell;
+  
+      char ArcName[NM];
++ #ifndef __BIONIC__
+      wchar ArcNameW[NM];
++ #endif
+  
+      SecPassword Password;
+      bool PasswordAll;
+      bool PrevExtracted;
+      char DestFileName[NM];
++ #ifndef __BIONIC__
+      wchar DestFileNameW[NM];
++ #endif
+      bool PasswordCancelled;
+    public:
+      CmdExtract();
+diff -crB orig/filcreat.cpp src/filcreat.cpp
+*** orig/filcreat.cpp	2013-12-28 19:18:09.105077946 +0100
+--- src/filcreat.cpp	2013-12-28 19:18:09.114077946 +0100
+***************
+*** 1,15 ****
+--- 1,25 ----
+  #include "rar.hpp"
+  
++ #ifndef __BIONIC__
+  bool FileCreate(RAROptions *Cmd,File *NewFile,char *Name,wchar *NameW,
+                  OVERWRITE_MODE Mode,bool *UserReject,int64 FileSize,
+                  uint FileTime,bool WriteOnly)
++ #else
++ bool FileCreate(RAROptions *Cmd,File *NewFile,char *Name,
++                 OVERWRITE_MODE Mode,bool *UserReject,int64 FileSize,
++                 uint FileTime,bool WriteOnly)
++ #endif
+  {
+    if (UserReject!=NULL)
+      *UserReject=false;
+  #if defined(_WIN_ALL) && !defined(_WIN_CE)
+    bool ShortNameChanged=false;
+  #endif
++ #ifndef __BIONIC__
+    while (FileExist(Name,NameW))
++ #else
++   while (FileExist(Name))
++ #endif
+    {
+  #if defined(_WIN_ALL) && !defined(_WIN_CE)
+      if (!ShortNameChanged)
+***************
+*** 26,33 ****
+--- 36,45 ----
+        {
+          if (Name!=NULL && *Name!=0)
+            WideToChar(WideName,Name);
++ #ifndef __BIONIC__
+          if (NameW!=NULL && *NameW!=0)
+            wcscpy(NameW,WideName);
++ #endif
+          continue;
+        }
+      }
+***************
+*** 45,51 ****
+--- 57,67 ----
+      // Must be before Cmd->AllYes check or -y switch would override -or.
+      if (Mode==OVERWRITE_AUTORENAME)
+      {
++ #ifndef __BIONIC__
+        if (!GetAutoRenamedName(Name,NameW))
++ #else
++       if (!GetAutoRenamedName(Name))
++ #endif
+          Mode=OVERWRITE_DEFAULT;
+        continue;
+      }
+***************
+*** 62,69 ****
+--- 78,87 ----
+      if (Mode==OVERWRITE_DEFAULT || Mode==OVERWRITE_FORCE_ASK)
+      {
+        char NewName[NM];
++ #ifndef __BIONIC__
+        wchar NewNameW[NM];
+        *NewNameW=0;
++ #endif
+        eprintf(St(MFileExists),Name);
+        int Choice=Ask(St(MYesNoAllRenQ));
+        if (Choice==1)
+***************
+*** 113,123 ****
+--- 131,143 ----
+          else
+            strcpy(Name,NewName);
+  
++ #ifndef __BIONIC__
+          if (NameW!=NULL)
+            if (PointToName(NewNameW)==NewNameW)
+              wcscpy(PointToName(NameW),NewNameW);
+            else
+              wcscpy(NameW,NewNameW);
++ #endif
+          continue;
+        }
+        if (Choice==6)
+***************
+*** 125,145 ****
+--- 145,183 ----
+      }
+    }
+    uint FileMode=WriteOnly ? FMF_WRITE|FMF_SHAREREAD:FMF_UPDATE|FMF_SHAREREAD;
++ #ifndef __BIONIC__
+    if (NewFile!=NULL && NewFile->Create(Name,NameW,FileMode))
++ #else
++   if (NewFile!=NULL && NewFile->Create(Name,FileMode))
++ #endif
+      return(true);
++ #ifndef __BIONIC__
+    PrepareToDelete(Name,NameW);
+    CreatePath(Name,NameW,true);
+    return(NewFile!=NULL ? NewFile->Create(Name,NameW,FileMode):DelFile(Name,NameW));
++ #else
++   PrepareToDelete(Name);
++   CreatePath(Name,true);
++   return(NewFile!=NULL ? NewFile->Create(Name,FileMode):DelFile(Name));
++ #endif
+  }
+  
+  
++ #ifndef __BIONIC__
+  bool GetAutoRenamedName(char *Name,wchar *NameW)
++ #else
++ bool GetAutoRenamedName(char *Name)
++ #endif
+  {
+    char NewName[NM];
++ #ifndef __BIONIC__
+    wchar NewNameW[NM];
+  
+    if (Name!=NULL && strlen(Name)>ASIZE(NewName)-10 || 
+        NameW!=NULL && wcslen(NameW)>ASIZE(NewNameW)-10)
++ #else
++   if (Name!=NULL && strlen(Name)>ASIZE(NewName)-10)
++ #endif
+      return(false);
+    char *Ext=NULL;
+    if (Name!=NULL && *Name!=0)
+***************
+*** 148,153 ****
+--- 186,192 ----
+      if (Ext==NULL)
+        Ext=Name+strlen(Name);
+    }
++ #ifndef __BIONIC__
+    wchar *ExtW=NULL;
+    if (NameW!=NULL && *NameW!=0)
+    {
+***************
+*** 155,174 ****
+--- 194,222 ----
+      if (ExtW==NULL)
+        ExtW=NameW+wcslen(NameW);
+    }
++ #endif
+    *NewName=0;
++ #ifndef __BIONIC__
+    *NewNameW=0;
++ #endif
+    for (int FileVer=1;;FileVer++)
+    {
+      if (Name!=NULL && *Name!=0)
+        sprintf(NewName,"%.*s(%d)%s",int(Ext-Name),Name,FileVer,Ext);
++ #ifndef __BIONIC__
+      if (NameW!=NULL && *NameW!=0)
+        sprintfw(NewNameW,ASIZE(NewNameW),L"%.*s(%d)%s",int(ExtW-NameW),NameW,FileVer,ExtW);
+      if (!FileExist(NewName,NewNameW))
++ #else
++     if (!FileExist(NewName))
++ #endif
+      {
+        if (Name!=NULL && *Name!=0)
+          strcpy(Name,NewName);
++ #ifndef __BIONIC__
+        if (NameW!=NULL && *NameW!=0)
+          wcscpy(NameW,NewNameW);
++ #endif
+        break;
+      }
+      if (FileVer>=1000000)
+diff -crB orig/filcreat.hpp src/filcreat.hpp
+*** orig/filcreat.hpp	2013-12-28 19:18:09.105077946 +0100
+--- src/filcreat.hpp	2013-12-28 19:18:09.114077946 +0100
+***************
+*** 1,10 ****
+--- 1,17 ----
+  #ifndef _RAR_FILECREATE_
+  #define _RAR_FILECREATE_
+  
++ #ifndef __BIONIC__
+  bool FileCreate(RAROptions *Cmd,File *NewFile,char *Name,wchar *NameW,
+                  OVERWRITE_MODE Mode,bool *UserReject,int64 FileSize=INT64NDF,
+                  uint FileTime=0,bool WriteOnly=false);
+  bool GetAutoRenamedName(char *Name,wchar *NameW);
++ #else
++ bool FileCreate(RAROptions *Cmd,File *NewFile,char *Name,
++                 OVERWRITE_MODE Mode,bool *UserReject,int64 FileSize=INT64NDF,
++                 uint FileTime=0,bool WriteOnly=false);
++ bool GetAutoRenamedName(char *Name);
++ #endif
+  
+  #if defined(_WIN_ALL) && !defined(_WIN_CE)
+  bool UpdateExistingShortName(wchar *Name);
+diff -crB orig/file.cpp src/file.cpp
+*** orig/file.cpp	2013-12-28 19:18:09.105077946 +0100
+--- src/file.cpp	2013-12-28 19:18:09.114077946 +0100
+***************
+*** 7,13 ****
+--- 7,15 ----
+  {
+    hFile=BAD_HANDLE;
+    *FileName=0;
++ #ifndef __BIONIC__
+    *FileNameW=0;
++ #endif
+    NewFile=false;
+    LastWrite=false;
+    HandleType=FILE_HANDLENORMAL;
+***************
+*** 45,52 ****
+    SrcFile.SkipClose=true;
+  }
+  
+! 
+  bool File::Open(const char *Name,const wchar *NameW,uint Mode)
+  {
+    ErrorType=FILE_SUCCESS;
+    FileHandle hNewFile;
+--- 47,57 ----
+    SrcFile.SkipClose=true;
+  }
+  
+! #ifndef __BIONIC__
+  bool File::Open(const char *Name,const wchar *NameW,uint Mode)
++ #else
++ bool File::Open(const char *Name,uint Mode)
++ #endif
+  {
+    ErrorType=FILE_SUCCESS;
+    FileHandle hNewFile;
+***************
+*** 110,123 ****
+--- 115,132 ----
+      // with overlapped buffers. While we do not call this function with
+      // really overlapped buffers yet, we do call it with Name equal to
+      // FileName like Arc.Open(Arc.FileName,Arc.FileNameW,...).
++ #ifndef __BIONIC__
+      if (NameW!=NULL)
+        memmove(FileNameW,NameW,(wcslen(NameW)+1)*sizeof(*NameW));
+      else
+        *FileNameW=0;
++ #endif
+      if (Name!=NULL)
+        memmove(FileName,Name,strlen(Name)+1);
++ #ifndef __BIONIC__
+      else
+        WideToChar(NameW,FileName);
++ #endif
+      AddFileToList(hFile);
+    }
+    return(Success);
+***************
+*** 125,148 ****
+  
+  
+  #if !defined(SHELL_EXT) && !defined(SFX_MODULE)
+  void File::TOpen(const char *Name,const wchar *NameW)
+  {
+    if (!WOpen(Name,NameW))
+      ErrHandler.Exit(RARX_OPEN);
+  }
+  #endif
+  
+! 
+  bool File::WOpen(const char *Name,const wchar *NameW)
+  {
+    if (Open(Name,NameW))
+      return(true);
+    ErrHandler.OpenErrorMsg(Name,NameW);
+    return(false);
+  }
+  
+! 
+  bool File::Create(const char *Name,const wchar *NameW,uint Mode)
+  {
+    // OpenIndiana based NAS and CIFS shares fail to set the file time if file
+    // was created in read+write mode and some data was written and not flushed
+--- 134,179 ----
+  
+  
+  #if !defined(SHELL_EXT) && !defined(SFX_MODULE)
++ #ifndef __BIONIC__
+  void File::TOpen(const char *Name,const wchar *NameW)
++ #else
++ void File::TOpen(const char *Name)
++ #endif
+  {
++ #ifndef __BIONIC__
+    if (!WOpen(Name,NameW))
++ #else
++   if (!WOpen(Name))
++ #endif
+      ErrHandler.Exit(RARX_OPEN);
+  }
+  #endif
+  
+! #ifndef __BIONIC__
+  bool File::WOpen(const char *Name,const wchar *NameW)
++ #else
++ bool File::WOpen(const char *Name)
++ #endif
+  {
++ #ifndef __BIONIC__
+    if (Open(Name,NameW))
++ #else
++   if (Open(Name))
++ #endif
+      return(true);
++ #ifndef __BIONIC__
+    ErrHandler.OpenErrorMsg(Name,NameW);
++ #else
++   ErrHandler.OpenErrorMsg(Name);
++ #endif
+    return(false);
+  }
+  
+! #ifndef __BIONIC__
+  bool File::Create(const char *Name,const wchar *NameW,uint Mode)
++ #else
++ bool File::Create(const char *Name,uint Mode)
++ #endif
+  {
+    // OpenIndiana based NAS and CIFS shares fail to set the file time if file
+    // was created in read+write mode and some data was written and not flushed
+***************
+*** 164,177 ****
+--- 195,212 ----
+    NewFile=true;
+    HandleType=FILE_HANDLENORMAL;
+    SkipClose=false;
++ #ifndef __BIONIC__
+    if (NameW!=NULL)
+      wcscpy(FileNameW,NameW);
+    else
+      *FileNameW=0;
++ #endif
+    if (Name!=NULL)
+      strcpy(FileName,Name);
++ #ifndef __BIONIC__
+    else
+      WideToChar(NameW,FileName);
++ #endif
+    AddFileToList(hFile);
+    return(hFile!=BAD_HANDLE);
+  }
+***************
+*** 190,209 ****
+  
+  
+  #if !defined(SHELL_EXT) && !defined(SFX_MODULE)
+  void File::TCreate(const char *Name,const wchar *NameW,uint Mode)
+  {
+    if (!WCreate(Name,NameW,Mode))
+      ErrHandler.Exit(RARX_FATAL);
+  }
+  #endif
+  
+! 
+  bool File::WCreate(const char *Name,const wchar *NameW,uint Mode)
+  {
+    if (Create(Name,NameW,Mode))
+      return(true);
+    ErrHandler.SetErrorCode(RARX_CREATE);
+    ErrHandler.CreateErrorMsg(Name,NameW);
+    return(false);
+  }
+  
+--- 225,263 ----
+  
+  
+  #if !defined(SHELL_EXT) && !defined(SFX_MODULE)
++ #ifndef __BIONIC__
+  void File::TCreate(const char *Name,const wchar *NameW,uint Mode)
++ #else
++ void File::TCreate(const char *Name,uint Mode)
++ #endif
+  {
++ #ifndef __BIONIC__
+    if (!WCreate(Name,NameW,Mode))
++ #else
++   if (!WCreate(Name,Mode))
++ #endif
+      ErrHandler.Exit(RARX_FATAL);
+  }
+  #endif
+  
+! #ifndef __BIONIC__
+  bool File::WCreate(const char *Name,const wchar *NameW,uint Mode)
++ #else
++ bool File::WCreate(const char *Name,uint Mode)
++ #endif
+  {
++ #ifndef __BIONIC__
+    if (Create(Name,NameW,Mode))
++ #else
++   if (Create(Name,Mode))
++ #endif
+      return(true);
+    ErrHandler.SetErrorCode(RARX_CREATE);
++ #ifndef __BIONIC__
+    ErrHandler.CreateErrorMsg(Name,NameW);
++ #else
++   ErrHandler.CreateErrorMsg(Name);
++ #endif
+    return(false);
+  }
+  
+***************
+*** 233,239 ****
+--- 287,297 ----
+        }
+        hFile=BAD_HANDLE;
+        if (!Success && AllowExceptions)
++ #ifndef __BIONIC__
+          ErrHandler.CloseError(FileName,FileNameW);
++ #else
++         ErrHandler.CloseError(FileName);
++ #endif
+      }
+    CloseCount++;
+    return(Success);
+***************
+*** 258,282 ****
+      Close();
+    if (!AllowDelete)
+      return(false);
+    return(DelFile(FileName,FileNameW));
+  }
+  
+! 
+  bool File::Rename(const char *NewName,const wchar *NewNameW)
+  {
+    // we do not need to rename if names are already same
+    bool Success=strcmp(FileName,NewName)==0;
+    if (Success && *FileNameW!=0 && *NullToEmpty(NewNameW)!=0)
+      Success=wcscmp(FileNameW,NewNameW)==0;
+  
+    if (!Success)
+      Success=RenameFile(FileName,FileNameW,NewName,NewNameW);
+  
+    if (Success)
+    {
+      // renamed successfully, storing the new name
+      strcpy(FileName,NewName);
+      wcscpy(FileNameW,NullToEmpty(NewNameW));
+    }
+    return(Success);
+  }
+--- 316,355 ----
+      Close();
+    if (!AllowDelete)
+      return(false);
++ #ifndef __BIONIC__
+    return(DelFile(FileName,FileNameW));
++ #else
++   return(DelFile(FileName));
++ #endif
+  }
+  
+! #ifndef __BIONIC__
+  bool File::Rename(const char *NewName,const wchar *NewNameW)
++ #else
++ bool File::Rename(const char *NewName)
++ #endif
+  {
+    // we do not need to rename if names are already same
+    bool Success=strcmp(FileName,NewName)==0;
++ #ifndef __BIONIC__
+    if (Success && *FileNameW!=0 && *NullToEmpty(NewNameW)!=0)
+      Success=wcscmp(FileNameW,NewNameW)==0;
++ #endif
+  
+    if (!Success)
++ #ifndef __BIONIC__
+      Success=RenameFile(FileName,FileNameW,NewName,NewNameW);
++ #else
++     Success=RenameFile(FileName,NewName);
++ #endif
+  
+    if (Success)
+    {
+      // renamed successfully, storing the new name
+      strcpy(FileName,NewName);
++ #ifndef __BIONIC__
+      wcscpy(FileNameW,NullToEmpty(NewNameW));
++ #endif
+    }
+    return(Success);
+  }
+***************
+*** 338,344 ****
+--- 411,422 ----
+        if (FreeSize>Size && FilePos-Size<=0xffffffff && FilePos+Size>0xffffffff)
+          ErrHandler.WriteErrorFAT(FileName,FileNameW);
+  #endif
++ 
++ #ifndef __BIONIC__
+        if (ErrHandler.AskRepeatWrite(FileName,FileNameW,false))
++ #else
++       if (ErrHandler.AskRepeatWrite(FileName,false))
++ #endif
+        {
+  #ifndef _WIN_ALL
+          clearerr(hFile);
+***************
+*** 347,353 ****
+--- 425,435 ----
+            Seek(Tell()-Written,SEEK_SET);
+          continue;
+        }
++ #ifndef __BIONIC__
+        ErrHandler.WriteError(NULL,NULL,FileName,FileNameW);
++ #else
++       ErrHandler.WriteError(NULL,FileName);
++ #endif
+      }
+      break;
+    }
+***************
+*** 382,390 ****
+--- 464,478 ----
+          }
+          else
+          {
++ #ifndef __BIONIC__
+            if (HandleType==FILE_HANDLENORMAL && ErrHandler.AskRepeatRead(FileName,FileNameW))
+              continue;
+            ErrHandler.ReadError(FileName,FileNameW);
++ #else
++           if (HandleType==FILE_HANDLENORMAL && ErrHandler.AskRepeatRead(FileName))
++             continue;
++           ErrHandler.ReadError(FileName);
++ #endif
+          }
+      }
+      break;
+***************
+*** 440,446 ****
+--- 528,538 ----
+  void File::Seek(int64 Offset,int Method)
+  {
+    if (!RawSeek(Offset,Method) && AllowExceptions)
++ #ifndef __BIONIC__
+      ErrHandler.SeekError(FileName,FileNameW);
++ #else
++     ErrHandler.SeekError(FileName);
++ #endif
+  }
+  
+  
+***************
+*** 475,481 ****
+--- 567,577 ----
+  {
+    if (hFile==BAD_HANDLE)
+      if (AllowExceptions)
++ #ifndef __BIONIC__
+        ErrHandler.SeekError(FileName,FileNameW);
++ #else
++       ErrHandler.SeekError(FileName);
++ #endif
+      else
+        return(-1);
+  #ifdef _WIN_ALL
+***************
+*** 483,489 ****
+--- 579,589 ----
+    uint LowDist=SetFilePointer(hFile,0,&HighDist,FILE_CURRENT);
+    if (LowDist==0xffffffff && GetLastError()!=NO_ERROR)
+      if (AllowExceptions)
++ #ifndef __BIONIC__
+        ErrHandler.SeekError(FileName,FileNameW);
++ #else
++       ErrHandler.SeekError(FileName);
++ #endif
+      else
+        return(-1);
+    return(INT32TO64(HighDist,LowDist));
+diff -crB orig/filefn.cpp src/filefn.cpp
+*** orig/filefn.cpp	2013-12-28 19:18:09.105077946 +0100
+--- src/filefn.cpp	2013-12-28 19:18:09.114077946 +0100
+***************
+*** 1,6 ****
+--- 1,10 ----
+  #include "rar.hpp"
+  
++ #ifndef __BIONIC__
+  MKDIR_CODE MakeDir(const char *Name,const wchar *NameW,bool SetAttr,uint Attr)
++ #else
++ MKDIR_CODE MakeDir(const char *Name,bool SetAttr,uint Attr)
++ #endif
+  {
+  #ifdef _WIN_ALL
+    BOOL RetCode;
+***************
+*** 36,42 ****
+--- 40,50 ----
+    #endif
+      {
+        if (SetAttr)
++ #ifndef __BIONIC__
+          SetFileAttr(Name,NameW,Attr);
++ #else
++         SetFileAttr(Name,Attr);
++ #endif
+        return(MKDIR_SUCCESS);
+      }
+      return(errno==ENOENT ? MKDIR_BADPATH:MKDIR_ERROR);
+***************
+*** 78,84 ****
+--- 86,96 ----
+        strncpy(DirName,Path,s-Path);
+        DirName[s-Path]=0;
+  
++ #ifndef __BIONIC__
+        if (MakeDir(DirName,NULL,true,DirAttr)==MKDIR_SUCCESS)
++ #else
++       if (MakeDir(DirName,true,DirAttr)==MKDIR_SUCCESS)
++ #endif
+        {
+  #ifndef GUI
+          mprintf(St(MCreatDir),DirName);
+***************
+*** 91,102 ****
+    }
+    if (!SkipLastName)
+      if (!IsPathDiv(*PointToLastChar(Path)))
+        if (MakeDir(Path,NULL,true,DirAttr)!=MKDIR_SUCCESS)
+          Success=false;
+    return(Success);
+  }
+  
+! 
+  bool CreatePath(const wchar *Path,bool SkipLastName)
+  {
+    if (Path==NULL || *Path==0)
+--- 103,118 ----
+    }
+    if (!SkipLastName)
+      if (!IsPathDiv(*PointToLastChar(Path)))
++ #ifndef __BIONIC__
+        if (MakeDir(Path,NULL,true,DirAttr)!=MKDIR_SUCCESS)
++ #else
++       if (MakeDir(Path,true,DirAttr)!=MKDIR_SUCCESS)
++ #endif
+          Success=false;
+    return(Success);
+  }
+  
+! #ifndef __BIONIC__
+  bool CreatePath(const wchar *Path,bool SkipLastName)
+  {
+    if (Path==NULL || *Path==0)
+***************
+*** 157,165 ****
+--- 173,186 ----
+      return(CreatePath(Path,SkipLastName));
+    return(false);
+  }
++ #endif
+  
+  
++ #ifndef __BIONIC__
+  void SetDirTime(const char *Name,const wchar *NameW,RarTime *ftm,RarTime *ftc,RarTime *fta)
++ #else
++ void SetDirTime(const char *Name,RarTime *ftm,RarTime *ftc,RarTime *fta)
++ #endif
+  {
+  #ifdef _WIN_ALL
+    if (!WinNT())
+***************
+*** 305,312 ****
+  
+  
+  
+! 
+  bool FileExist(const char *Name,const wchar *NameW)
+  {
+  #ifdef _WIN_ALL
+      if (WinNT() && NameW!=NULL && *NameW!=0)
+--- 326,336 ----
+  
+  
+  
+! #ifndef __BIONIC__
+  bool FileExist(const char *Name,const wchar *NameW)
++ #else
++ bool FileExist(const char *Name)
++ #endif
+  {
+  #ifdef _WIN_ALL
+      if (WinNT() && NameW!=NULL && *NameW!=0)
+***************
+*** 317,344 ****
+    return(access(Name,0)==0);
+  #else
+    FindData FD;
+    return(FindFile::FastFind(Name,NameW,&FD));
+  #endif
+  }
+  
+! 
+  bool FileExist(const wchar *Name)
+  {
+    return FileExist(NULL,Name);
+  }
+   
+! 
+  bool WildFileExist(const char *Name,const wchar *NameW)
+  {
+    if (IsWildcard(Name,NameW))
+    {
+      FindFile Find;
+      Find.SetMask(Name);
+      Find.SetMaskW(NameW);
+      FindData fd;
+      return(Find.Next(&fd));
+    }
+    return(FileExist(Name,NameW));
+  }
+  
+  
+--- 341,386 ----
+    return(access(Name,0)==0);
+  #else
+    FindData FD;
++ #ifndef __BIONIC__
+    return(FindFile::FastFind(Name,NameW,&FD));
++ #else
++   return(FindFile::FastFind(Name,&FD));
++ #endif
+  #endif
+  }
+  
+! #ifndef __BIONIC__
+  bool FileExist(const wchar *Name)
+  {
+    return FileExist(NULL,Name);
+  }
++ #endif
+   
+! #ifndef __BIONIC__
+  bool WildFileExist(const char *Name,const wchar *NameW)
++ #else
++ bool WildFileExist(const char *Name)
++ #endif
+  {
++ #ifndef __BIONIC__
+    if (IsWildcard(Name,NameW))
++ #else
++   if (IsWildcard(Name))
++ #endif
+    {
+      FindFile Find;
+      Find.SetMask(Name);
++ #ifndef __BIONIC__
+      Find.SetMaskW(NameW);
++ #endif
+      FindData fd;
+      return(Find.Next(&fd));
+    }
++ #ifndef __BIONIC__
+    return(FileExist(Name,NameW));
++ #else
++   return(FileExist(Name));
++ #endif
+  }
+  
+  
+***************
+*** 395,402 ****
+  #endif
+  }
+  
+! 
+  void PrepareToDelete(const char *Name,const wchar *NameW)
+  {
+  #if defined(_WIN_ALL) || defined(_EMX)
+    SetFileAttr(Name,NameW,0);
+--- 437,447 ----
+  #endif
+  }
+  
+! #ifndef __BIONIC__
+  void PrepareToDelete(const char *Name,const wchar *NameW)
++ #else
++ void PrepareToDelete(const char *Name)
++ #endif
+  {
+  #if defined(_WIN_ALL) || defined(_EMX)
+    SetFileAttr(Name,NameW,0);
+***************
+*** 407,414 ****
+  #endif
+  }
+  
+! 
+  uint GetFileAttr(const char *Name,const wchar *NameW)
+  {
+  #ifdef _WIN_ALL
+      if (WinNT() && NameW!=NULL && *NameW!=0)
+--- 452,462 ----
+  #endif
+  }
+  
+! #ifndef __BIONIC__
+  uint GetFileAttr(const char *Name,const wchar *NameW)
++ #else
++ uint GetFileAttr(const char *Name)
++ #endif
+  {
+  #ifdef _WIN_ALL
+      if (WinNT() && NameW!=NULL && *NameW!=0)
+***************
+*** 429,436 ****
+  #endif
+  }
+  
+! 
+  bool SetFileAttr(const char *Name,const wchar *NameW,uint Attr)
+  {
+    bool Success;
+  #ifdef _WIN_ALL
+--- 477,487 ----
+  #endif
+  }
+  
+! #ifndef __BIONIC__
+  bool SetFileAttr(const char *Name,const wchar *NameW,uint Attr)
++ #else
++ bool SetFileAttr(const char *Name,uint Attr)
++ #endif
+  {
+    bool Success;
+  #ifdef _WIN_ALL
+***************
+*** 508,529 ****
+  }
+  #endif
+  
+! 
+  bool RenameFile(const char *SrcName,const wchar *SrcNameW,const char *DestName,const wchar *DestNameW)
+  {
+    return(rename(SrcName,DestName)==0);
+  }
+  
+! 
+  bool DelFile(const char *Name)
+  {
+    return(DelFile(Name,NULL));
+  }
+  
+  
+! 
+! 
+  bool DelFile(const char *Name,const wchar *NameW)
+  {
+    return(Name!=NULL && remove(Name)==0);
+  }
+--- 559,586 ----
+  }
+  #endif
+  
+! #ifndef __BIONIC__
+  bool RenameFile(const char *SrcName,const wchar *SrcNameW,const char *DestName,const wchar *DestNameW)
++ #else
++ bool RenameFile(const char *SrcName,const char *DestName)
++ #endif
+  {
+    return(rename(SrcName,DestName)==0);
+  }
+  
+! #ifndef __BIONIC__
+  bool DelFile(const char *Name)
+  {
+    return(DelFile(Name,NULL));
+  }
++ #endif
+  
+  
+! #ifndef __BIONIC__
+  bool DelFile(const char *Name,const wchar *NameW)
++ #else
++ bool DelFile(const char *Name)
++ #endif
+  {
+    return(Name!=NULL && remove(Name)==0);
+  }
+diff -crB orig/filefn.hpp src/filefn.hpp
+*** orig/filefn.hpp	2013-12-28 19:18:09.105077946 +0100
+--- src/filefn.hpp	2013-12-28 19:18:09.114077946 +0100
+***************
+*** 3,23 ****
+  
+  enum MKDIR_CODE {MKDIR_SUCCESS,MKDIR_ERROR,MKDIR_BADPATH};
+  
+  MKDIR_CODE MakeDir(const char *Name,const wchar *NameW,bool SetAttr,uint Attr);
+  bool CreatePath(const char *Path,bool SkipLastName);
+  bool CreatePath(const wchar *Path,bool SkipLastName);
+  bool CreatePath(const char *Path,const wchar *PathW,bool SkipLastName);
+  void SetDirTime(const char *Name,const wchar *NameW,RarTime *ftm,RarTime *ftc,RarTime *fta);
+  bool IsRemovable(const char *Name);
+  
+  #ifndef SFX_MODULE
+  int64 GetFreeDisk(const char *Name);
+  #endif
+  
+! 
+  bool FileExist(const char *Name,const wchar *NameW=NULL);
+  bool FileExist(const wchar *Name);
+  bool WildFileExist(const char *Name,const wchar *NameW=NULL);
+  bool IsDir(uint Attr);
+  bool IsUnreadable(uint Attr);
+  bool IsLabel(uint Attr);
+--- 3,35 ----
+  
+  enum MKDIR_CODE {MKDIR_SUCCESS,MKDIR_ERROR,MKDIR_BADPATH};
+  
++ #ifndef __BIONIC__
+  MKDIR_CODE MakeDir(const char *Name,const wchar *NameW,bool SetAttr,uint Attr);
++ #else
++ MKDIR_CODE MakeDir(const char *Name,bool SetAttr,uint Attr);
++ #endif
+  bool CreatePath(const char *Path,bool SkipLastName);
++ #ifndef __BIONIC__
+  bool CreatePath(const wchar *Path,bool SkipLastName);
+  bool CreatePath(const char *Path,const wchar *PathW,bool SkipLastName);
+  void SetDirTime(const char *Name,const wchar *NameW,RarTime *ftm,RarTime *ftc,RarTime *fta);
++ #else
++ void SetDirTime(const char *Name,RarTime *ftm,RarTime *ftc,RarTime *fta);
++ #endif
+  bool IsRemovable(const char *Name);
+  
+  #ifndef SFX_MODULE
+  int64 GetFreeDisk(const char *Name);
+  #endif
+  
+! #ifndef __BIONIC__
+  bool FileExist(const char *Name,const wchar *NameW=NULL);
+  bool FileExist(const wchar *Name);
+  bool WildFileExist(const char *Name,const wchar *NameW=NULL);
++ #else
++ bool FileExist(const char *Name);
++ bool WildFileExist(const char *Name);
++ #endif
+  bool IsDir(uint Attr);
+  bool IsUnreadable(uint Attr);
+  bool IsLabel(uint Attr);
+***************
+*** 25,42 ****
+--- 37,72 ----
+  void SetSFXMode(const char *FileName);
+  void EraseDiskContents(const char *FileName);
+  bool IsDeleteAllowed(uint FileAttr);
++ #ifndef __BIONIC__
+  void PrepareToDelete(const char *Name,const wchar *NameW=NULL);
+  uint GetFileAttr(const char *Name,const wchar *NameW=NULL);
+  bool SetFileAttr(const char *Name,const wchar *NameW,uint Attr);
++ #else
++ void PrepareToDelete(const char *Name);
++ uint GetFileAttr(const char *Name);
++ bool SetFileAttr(const char *Name,uint Attr);
++ #endif
+  
+  enum CALCCRC_SHOWMODE {CALCCRC_SHOWNONE,CALCCRC_SHOWTEXT,CALCCRC_SHOWALL};
+  uint CalcFileCRC(File *SrcFile,int64 Size=INT64NDF,CALCCRC_SHOWMODE ShowMode=CALCCRC_SHOWNONE);
+  
++ #ifndef __BIONIC__
+  bool RenameFile(const char *SrcName,const wchar *SrcNameW,const char *DestName,const wchar *DestNameW);
++ #else
++ bool RenameFile(const char *SrcName,const char *DestName);
++ #endif
+  bool DelFile(const char *Name);
++ #ifndef __BIONIC__
+  bool DelFile(const char *Name,const wchar *NameW);
++ #else
++ bool DelFile(const char *Name);
++ #endif
+  bool DelDir(const char *Name);
++ #ifndef __BIONIC__
+  bool DelDir(const char *Name,const wchar *NameW);
++ #else
++ bool DelDir(const char *Name);
++ #endif
+  
+  #if defined(_WIN_ALL) && !defined(_WIN_CE)
+  bool SetFileCompression(char *Name,wchar *NameW,bool State);
+diff -crB orig/file.hpp src/file.hpp
+*** orig/file.hpp	2013-12-28 19:18:09.105077946 +0100
+--- src/file.hpp	2013-12-28 19:18:09.114077946 +0100
+***************
+*** 66,72 ****
+--- 66,74 ----
+      bool OpenShared; // Set by 'Archive' class.
+    public:
+      char FileName[NM];
++ #ifndef __BIONIC__
+      wchar FileNameW[NM];
++ #endif
+  
+      FILE_ERRORTYPE ErrorType;
+  
+***************
+*** 75,90 ****
+--- 77,105 ----
+      File();
+      virtual ~File();
+      void operator = (File &SrcFile);
++ #ifndef __BIONIC__
+      bool Open(const char *Name,const wchar *NameW=NULL,uint Mode=FMF_READ);
+      void TOpen(const char *Name,const wchar *NameW=NULL);
+      bool WOpen(const char *Name,const wchar *NameW=NULL);
+      bool Create(const char *Name,const wchar *NameW=NULL,uint Mode=FMF_UPDATE|FMF_SHAREREAD);
+      void TCreate(const char *Name,const wchar *NameW=NULL,uint Mode=FMF_UPDATE|FMF_SHAREREAD);
+      bool WCreate(const char *Name,const wchar *NameW=NULL,uint Mode=FMF_UPDATE|FMF_SHAREREAD);
++ #else
++     bool Open(const char *Name,uint Mode=FMF_READ);
++     void TOpen(const char *Name);
++     bool WOpen(const char *Name);
++     bool Create(const char *Name,uint Mode=FMF_UPDATE|FMF_SHAREREAD);
++     void TCreate(const char *Name,uint Mode=FMF_UPDATE|FMF_SHAREREAD);
++     bool WCreate(const char *Name,uint Mode=FMF_UPDATE|FMF_SHAREREAD);
++ #endif
+      bool Close();
+      void Flush();
+      bool Delete();
++ #ifndef __BIONIC__
+      bool Rename(const char *NewName,const wchar *NewNameW=NULL);
++ #else
++     bool Rename(const char *NewName);
++ #endif
+      void Write(const void *Data,size_t Size);
+      int Read(void *Data,size_t Size);
+      int DirectRead(void *Data,size_t Size);
+diff -crB orig/filestr.cpp src/filestr.cpp
+*** orig/filestr.cpp	2013-12-28 19:18:09.106077946 +0100
+--- src/filestr.cpp	2013-12-28 19:18:09.114077946 +0100
+***************
+*** 4,10 ****
+--- 4,12 ----
+  
+  bool ReadTextFile(
+    const char *Name,
++ #ifndef __BIONIC__
+    const wchar *NameW,
++ #endif
+    StringList *List,
+    bool Config,
+    bool AbortOnError,
+***************
+*** 21,28 ****
+--- 23,32 ----
+      else
+        strcpy(FileName,Name);
+  
++ #ifndef __BIONIC__
+    wchar FileNameW[NM];
+    *FileNameW=0;
++ #endif
+  
+  #ifdef _WIN_ALL
+    if (NameW!=NULL)
+***************
+*** 33,41 ****
+--- 37,53 ----
+  #endif
+  
+    File SrcFile;
++ #ifndef __BIONIC__
+    if (FileName!=NULL && *FileName!=0 || FileNameW!=NULL && *FileNameW!=0)
++ #else
++   if (FileName!=NULL && *FileName!=0)
++ #endif
+    {
++ #ifndef __BIONIC__
+      bool OpenCode=AbortOnError ? SrcFile.WOpen(FileName,FileNameW):SrcFile.Open(FileName,FileNameW,0);
++ #else
++     bool OpenCode=AbortOnError ? SrcFile.WOpen(FileName):SrcFile.Open(FileName,0);
++ #endif
+  
+      if (!OpenCode)
+      {
+***************
+*** 58,63 ****
+--- 70,76 ----
+  
+    memset(&Data[DataSize],0,5);
+  
++ #ifndef __BIONIC__
+    if (SrcCharset==RCH_UNICODE ||
+        SrcCharset==RCH_DEFAULT && IsUnicode((byte *)&Data[0],DataSize))
+    {
+***************
+*** 137,142 ****
+--- 150,156 ----
+    }
+    else
+    {
++ #endif
+      char *CurStr=&Data[0];
+      while (*CurStr!=0)
+      {
+***************
+*** 192,198 ****
+--- 206,214 ----
+        while (*CurStr=='\r' || *CurStr=='\n')
+          CurStr++;
+      }
++ #ifndef __BIONIC__
+    }
++ #endif
+    return(true);
+  }
+  
+diff -crB orig/filestr.hpp src/filestr.hpp
+*** orig/filestr.hpp	2013-12-28 19:18:09.106077946 +0100
+--- src/filestr.hpp	2013-12-28 19:18:09.115077946 +0100
+***************
+*** 3,9 ****
+--- 3,11 ----
+  
+  bool ReadTextFile(
+    const char *Name,
++ #ifndef __BIONIC__
+    const wchar *NameW,
++ #endif
+    StringList *List,
+    bool Config,
+    bool AbortOnError=false,
+diff -crB orig/find.cpp src/find.cpp
+*** orig/find.cpp	2013-12-28 19:18:09.106077946 +0100
+--- src/find.cpp	2013-12-28 19:18:09.115077946 +0100
+***************
+*** 3,9 ****
+--- 3,11 ----
+  FindFile::FindFile()
+  {
+    *FindMask=0;
++ #ifndef __BIONIC__
+    *FindMaskW=0;
++ #endif
+    FirstCall=true;
+  #ifdef _WIN_ALL
+    hFind=INVALID_HANDLE_VALUE;
+***************
+*** 28,39 ****
+  void FindFile::SetMask(const char *FindMask)
+  {
+    strcpy(FindFile::FindMask,NullToEmpty(FindMask));
+    if (*FindMaskW==0)
+      CharToWide(FindMask,FindMaskW);
+    FirstCall=true;
+  }
+  
+! 
+  void FindFile::SetMaskW(const wchar *FindMaskW)
+  {
+    if (FindMaskW==NULL)
+--- 30,43 ----
+  void FindFile::SetMask(const char *FindMask)
+  {
+    strcpy(FindFile::FindMask,NullToEmpty(FindMask));
++ #ifndef __BIONIC__
+    if (*FindMaskW==0)
+      CharToWide(FindMask,FindMaskW);
++ #endif
+    FirstCall=true;
+  }
+  
+! #ifndef __BIONIC__
+  void FindFile::SetMaskW(const wchar *FindMaskW)
+  {
+    if (FindMaskW==NULL)
+***************
+*** 43,49 ****
+      WideToChar(FindMaskW,FindMask);
+    FirstCall=true;
+  }
+! 
+  
+  bool FindFile::Next(struct FindData *fd,bool GetSymLink)
+  {
+--- 47,53 ----
+      WideToChar(FindMaskW,FindMask);
+    FirstCall=true;
+  }
+! #endif
+  
+  bool FindFile::Next(struct FindData *fd,bool GetSymLink)
+  {
+***************
+*** 94,100 ****
+--- 98,108 ----
+          return(false);
+        }
+        strcat(FullName,ent->d_name);
++ #ifndef __BIONIC__
+        if (!FastFind(FullName,NULL,fd,GetSymLink))
++ #else
++       if (!FastFind(FullName,fd,GetSymLink))
++ #endif
+        {
+          ErrHandler.OpenErrorMsg(FullName);
+          continue;
+***************
+*** 103,108 ****
+--- 111,118 ----
+        break;
+      }
+    }
++ 
++ #ifndef __BIONIC__
+    *fd->NameW=0;
+  #ifdef _APPLE
+    if (!LowAscii(fd->Name))
+***************
+*** 112,117 ****
+--- 122,128 ----
+      CharToWide(fd->Name,fd->NameW);
+  #endif
+  #endif
++ #endif
+    fd->Flags=0;
+    fd->IsDir=IsDir(fd->FileAttr);
+    FirstCall=false;
+***************
+*** 121,132 ****
+    return(true);
+  }
+  
+! 
+  bool FindFile::FastFind(const char *FindMask,const wchar *FindMaskW,FindData *fd,bool GetSymLink)
+  {
+    fd->Error=false;
+  #ifndef _UNIX
+    if (IsWildcard(FindMask,FindMaskW))
+      return(false);
+  #endif    
+  #ifdef _WIN_ALL
+--- 132,150 ----
+    return(true);
+  }
+  
+! #ifndef __BIONIC__
+  bool FindFile::FastFind(const char *FindMask,const wchar *FindMaskW,FindData *fd,bool GetSymLink)
++ #else
++ bool FindFile::FastFind(const char *FindMask,FindData *fd,bool GetSymLink)
++ #endif
+  {
+    fd->Error=false;
+  #ifndef _UNIX
++ #ifndef __BIONIC__
+    if (IsWildcard(FindMask,FindMaskW))
++ #else
++   if (IsWildcard(FindMask))
++ #endif
+      return(false);
+  #endif    
+  #ifdef _WIN_ALL
+***************
+*** 169,174 ****
+--- 187,193 ----
+    fd->FileTime=fd->mtime.GetDos();
+    strcpy(fd->Name,FindMask);
+  
++ #ifndef __BIONIC__
+    *fd->NameW=0;
+  #ifdef _APPLE
+    if (!LowAscii(fd->Name))
+***************
+*** 178,183 ****
+--- 197,203 ----
+      CharToWide(fd->Name,fd->NameW);
+  #endif
+  #endif
++ #endif
+    fd->Flags=0;
+    fd->IsDir=IsDir(fd->FileAttr);
+    return(true);
+diff -crB orig/find.hpp src/find.hpp
+*** orig/find.hpp	2013-12-28 19:18:09.106077946 +0100
+--- src/find.hpp	2013-12-28 19:18:09.115077946 +0100
+***************
+*** 8,14 ****
+--- 8,16 ----
+  struct FindData
+  {
+    char Name[NM];
++ #ifndef __BIONIC__
+    wchar NameW[NM];
++ #endif
+    int64 Size;
+    uint FileAttr;
+    uint FileTime;
+***************
+*** 34,40 ****
+--- 36,44 ----
+  #endif
+  
+      char FindMask[NM];
++ #ifndef __BIONIC__
+      wchar FindMaskW[NM];
++ #endif
+      bool FirstCall;
+  #ifdef _WIN_ALL
+      HANDLE hFind;
+***************
+*** 45,53 ****
+--- 49,63 ----
+      FindFile();
+      ~FindFile();
+      void SetMask(const char *FindMask);
++ #ifndef __BIONIC__
+      void SetMaskW(const wchar *FindMaskW);
++ #endif
+      bool Next(FindData *fd,bool GetSymLink=false);
++ #ifndef __BIONIC__
+      static bool FastFind(const char *FindMask,const wchar *FindMaskW,FindData *fd,bool GetSymLink=false);
++ #else
++     static bool FastFind(const char *FindMask,FindData *fd,bool GetSymLink=false);
++ #endif
+  };
+  
+  #endif
+diff -crB orig/list.cpp src/list.cpp
+*** orig/list.cpp	2013-12-28 19:18:09.106077946 +0100
+--- src/list.cpp	2013-12-28 19:18:09.115077946 +0100
+***************
+*** 15,29 ****
+--- 15,40 ----
+    bool Verbose=(*Cmd->Command=='V');
+  
+    char ArcName[NM];
++ #ifndef __BIONIC__
+    wchar ArcNameW[NM];
++ #endif
++ 
+  
++ #ifndef __BIONIC__
+    while (Cmd->GetArcName(ArcName,ArcNameW,sizeof(ArcName)))
++ #else
++   while (Cmd->GetArcName(ArcName,sizeof(ArcName)))
++ #endif
+    {
+      Archive Arc(Cmd);
+  #ifdef _WIN_ALL
+      Arc.RemoveSequentialFlag();
+  #endif
++ #ifndef __BIONIC__
+      if (!Arc.WOpen(ArcName,ArcNameW))
++ #else
++     if (!Arc.WOpen(ArcName))
++ #endif
+        continue;
+      bool FileMatched=true;
+      while (1)
+***************
+*** 195,200 ****
+--- 206,212 ----
+    char *Name=hd.FileName;
+  
+  #ifdef UNICODE_SUPPORTED
++ #ifndef __BIONIC__
+    char ConvertedName[NM];
+    if ((hd.Flags & LHD_UNICODE)!=0 && *hd.FileNameW!=0 && UnicodeEnabled())
+    {
+***************
+*** 202,207 ****
+--- 214,220 ----
+        Name=ConvertedName;
+    }
+  #endif
++ #endif
+  
+    if (Bare)
+    {
+***************
+*** 367,373 ****
+--- 380,390 ----
+        (Arc.SubHead.Flags & LHD_SPLIT_BEFORE)==0 && !Cmd->DisableComment)
+    {
+      Array<byte> CmtData;
++ #ifndef __BIONIC__
+      size_t ReadSize=Arc.ReadCommentData(&CmtData,NULL);
++ #else
++     size_t ReadSize=Arc.ReadCommentData(&CmtData);
++ #endif
+      if (ReadSize!=0)
+      {
+        mprintf(St(MFileComment));
+***************
+*** 377,382 ****
+--- 394,400 ----
+    if (Arc.SubHead.CmpName(SUBHEAD_TYPE_STREAM) &&
+        (Arc.SubHead.Flags & LHD_SPLIT_BEFORE)==0)
+    {
++ #ifndef __BIONIC__
+      size_t DestSize=Arc.SubHead.SubData.Size()/2;
+      wchar DestNameW[NM];
+      char DestName[NM];
+***************
+*** 387,391 ****
+--- 405,414 ----
+        WideToChar(DestNameW,DestName);
+        mprintf("\n %s",DestName);
+      }
++ #else
++     size_t DestSize=Arc.SubHead.SubData.Size();
++     char DestName[NM];
++     strncpyz(DestName,(const char *)&Arc.SubHead.SubData[0],ASIZE(DestName));
++ #endif
+    }
+  }
+diff -crB orig/match.cpp src/match.cpp
+*** orig/match.cpp	2013-12-28 19:18:09.106077946 +0100
+--- src/match.cpp	2013-12-28 19:18:09.116077946 +0100
+***************
+*** 1,12 ****
+--- 1,18 ----
+  #include "rar.hpp"
+  
+  static bool match(const char *pattern,const char *string,bool ForceCase);
++ #ifndef __BIONIC__
+  static bool match(const wchar *pattern,const wchar *string,bool ForceCase);
++ #endif
+  
+  static int mstricompc(const char *Str1,const char *Str2,bool ForceCase);
++ #ifndef __BIONIC__
+  static int mwcsicompc(const wchar *Str1,const wchar *Str2,bool ForceCase);
++ #endif
+  static int mstrnicompc(const char *Str1,const char *Str2,size_t N,bool ForceCase);
++ #ifndef __BIONIC__
+  static int mwcsnicompc(const wchar *Str1,const wchar *Str2,size_t N,bool ForceCase);
++ #endif
+  
+  inline uint toupperc(byte ch,bool ForceCase)
+  {
+***************
+*** 93,98 ****
+--- 99,105 ----
+  
+  
+  #ifndef SFX_MODULE
++ #ifndef __BIONIC__
+  bool CmpName(const wchar *Wildcard,const wchar *Name,int CmpMode)
+  {
+    bool ForceCase=(CmpMode&MATCH_FORCECASESENSITIVE)!=0;
+***************
+*** 150,155 ****
+--- 157,163 ----
+    return(match(Name1,Name2,ForceCase));
+  }
+  #endif
++ #endif
+  
+  
+  bool match(const char *pattern,const char *string,bool ForceCase)
+***************
+*** 204,209 ****
+--- 212,218 ----
+  
+  
+  #ifndef SFX_MODULE
++ #ifndef __BIONIC__
+  bool match(const wchar *pattern,const wchar *string,bool ForceCase)
+  {
+    for (;; ++string)
+***************
+*** 254,259 ****
+--- 263,269 ----
+    }
+  }
+  #endif
++ #endif
+  
+  
+  int mstricompc(const char *Str1,const char *Str2,bool ForceCase)
+***************
+*** 265,270 ****
+--- 275,281 ----
+  
+  
+  #ifndef SFX_MODULE
++ #ifndef __BIONIC__
+  int mwcsicompc(const wchar *Str1,const wchar *Str2,bool ForceCase)
+  {
+    if (ForceCase)
+***************
+*** 272,277 ****
+--- 283,289 ----
+    return(wcsicompc(Str1,Str2));
+  }
+  #endif
++ #endif
+  
+  
+  int mstrnicompc(const char *Str1,const char *Str2,size_t N,bool ForceCase)
+***************
+*** 287,292 ****
+--- 299,305 ----
+  
+  
+  #ifndef SFX_MODULE
++ #ifndef __BIONIC__
+  int mwcsnicompc(const wchar *Str1,const wchar *Str2,size_t N,bool ForceCase)
+  {
+    if (ForceCase)
+***************
+*** 298,300 ****
+--- 311,314 ----
+  #endif
+  }
+  #endif
++ #endif
+diff -crB orig/match.hpp src/match.hpp
+*** orig/match.hpp	2013-12-28 19:18:09.107077946 +0100
+--- src/match.hpp	2013-12-28 19:18:09.116077946 +0100
+***************
+*** 30,35 ****
+--- 30,37 ----
+  #define MATCH_FORCECASESENSITIVE 0x80000000
+  
+  bool CmpName(const char *Wildcard,const char *Name,int CmpMode);
++ #ifndef __BIONIC__
+  bool CmpName(const wchar *Wildcard,const wchar *Name,int CmpMode);
++ #endif
+  
+  #endif
+diff -crB orig/os.hpp src/os.hpp
+*** orig/os.hpp	2013-12-28 19:18:09.107077946 +0100
+--- src/os.hpp	2013-12-28 19:18:09.116077946 +0100
+***************
+*** 155,161 ****
+--- 155,163 ----
+  #endif
+  #include <pwd.h>
+  #include <grp.h>
++ #ifndef __BIONIC__
+  #include <wchar.h>
++ #endif
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include <stdarg.h>
+diff -crB orig/pathfn.cpp src/pathfn.cpp
+*** orig/pathfn.cpp	2013-12-28 19:18:09.107077946 +0100
+--- src/pathfn.cpp	2013-12-28 19:18:09.117077946 +0100
+***************
+*** 11,17 ****
+    return (char*)((*Path && IsDriveDiv(Path[1]) && charnext(Path)==Path+1) ? Path+2:Path);
+  }
+  
+! 
+  wchar* PointToName(const wchar *Path)
+  {
+    for (int I=(int)wcslen(Path)-1;I>=0;I--)
+--- 11,17 ----
+    return (char*)((*Path && IsDriveDiv(Path[1]) && charnext(Path)==Path+1) ? Path+2:Path);
+  }
+  
+! #ifndef __BIONIC__
+  wchar* PointToName(const wchar *Path)
+  {
+    for (int I=(int)wcslen(Path)-1;I>=0;I--)
+***************
+*** 19,25 ****
+        return (wchar*)&Path[I+1];
+    return (wchar*)((*Path && IsDriveDiv(Path[1])) ? Path+2:Path);
+  }
+! 
+  
+  char* PointToLastChar(const char *Path)
+  {
+--- 19,25 ----
+        return (wchar*)&Path[I+1];
+    return (wchar*)((*Path && IsDriveDiv(Path[1])) ? Path+2:Path);
+  }
+! #endif
+  
+  char* PointToLastChar(const char *Path)
+  {
+***************
+*** 28,40 ****
+        return((char *)p);
+  }
+  
+! 
+  wchar* PointToLastChar(const wchar *Path)
+  {
+    size_t Length=wcslen(Path);
+    return((wchar*)(Length>0 ? Path+Length-1:Path));
+  }
+! 
+  
+  char* ConvertPath(const char *SrcPath,char *DestPath)
+  {
+--- 28,40 ----
+        return((char *)p);
+  }
+  
+! #ifndef __BIONIC__
+  wchar* PointToLastChar(const wchar *Path)
+  {
+    size_t Length=wcslen(Path);
+    return((wchar*)(Length>0 ? Path+Length-1:Path));
+  }
+! #endif
+  
+  char* ConvertPath(const char *SrcPath,char *DestPath)
+  {
+***************
+*** 84,90 ****
+    return((char *)DestPtr);
+  }
+  
+! 
+  wchar* ConvertPath(const wchar *SrcPath,wchar *DestPath)
+  {
+    const wchar *DestPtr=SrcPath;
+--- 84,90 ----
+    return((char *)DestPtr);
+  }
+  
+! #ifndef __BIONIC__
+  wchar* ConvertPath(const wchar *SrcPath,wchar *DestPath)
+  {
+    const wchar *DestPtr=SrcPath;
+***************
+*** 131,137 ****
+    }
+    return((wchar *)DestPtr);
+  }
+! 
+  
+  void SetExt(char *Name,const char *NewExt)
+  {
+--- 131,137 ----
+    }
+    return((wchar *)DestPtr);
+  }
+! #endif
+  
+  void SetExt(char *Name,const char *NewExt)
+  {
+***************
+*** 151,157 ****
+        strcpy(Dot+1,NewExt);
+  }
+  
+! 
+  void SetExt(wchar *Name,const wchar *NewExt)
+  {
+    if (Name==NULL || *Name==0)
+--- 151,157 ----
+        strcpy(Dot+1,NewExt);
+  }
+  
+! #ifndef __BIONIC__
+  void SetExt(wchar *Name,const wchar *NewExt)
+  {
+    if (Name==NULL || *Name==0)
+***************
+*** 171,177 ****
+      else
+        wcscpy(Dot+1,NewExt);
+  }
+! 
+  
+  #ifndef SFX_MODULE
+  void SetSFXExt(char *SFXName)
+--- 171,177 ----
+      else
+        wcscpy(Dot+1,NewExt);
+  }
+! #endif
+  
+  #ifndef SFX_MODULE
+  void SetSFXExt(char *SFXName)
+***************
+*** 188,193 ****
+--- 188,194 ----
+  
+  
+  #ifndef SFX_MODULE
++ #ifndef __BIONIC__
+  void SetSFXExt(wchar *SFXName)
+  {
+    if (SFXName==NULL || *SFXName==0)
+***************
+*** 202,207 ****
+--- 203,209 ----
+  #endif
+  }
+  #endif
++ #endif
+  
+  
+  char *GetExt(const char *Name)
+***************
+*** 209,220 ****
+    return(Name==NULL ? NULL:strrchrd(PointToName(Name),'.'));
+  }
+  
+! 
+  wchar *GetExt(const wchar *Name)
+  {
+    return(Name==NULL ? NULL:wcsrchr(PointToName(Name),'.'));
+  }
+! 
+  
+  // 'Ext' is an extension without the leading dot, like "rar".
+  bool CmpExt(const char *Name,const char *Ext)
+--- 211,222 ----
+    return(Name==NULL ? NULL:strrchrd(PointToName(Name),'.'));
+  }
+  
+! #ifndef __BIONIC__
+  wchar *GetExt(const wchar *Name)
+  {
+    return(Name==NULL ? NULL:wcsrchr(PointToName(Name),'.'));
+  }
+! #endif
+  
+  // 'Ext' is an extension without the leading dot, like "rar".
+  bool CmpExt(const char *Name,const char *Ext)
+***************
+*** 224,241 ****
+  }
+  
+  
+  // 'Ext' is an extension without the leading dot, like L"rar".
+  bool CmpExt(const wchar *Name,const wchar *Ext)
+  {
+    wchar *NameExt=GetExt(Name);
+    return(NameExt!=NULL && wcsicomp(NameExt+1,Ext)==0);
+  }
+  
+! 
+  bool IsWildcard(const char *Str,const wchar *StrW)
+  {
+    if (StrW!=NULL && *StrW!=0)
+      return(wcspbrk(StrW,L"*?")!=NULL);
+    return(Str==NULL ? false:strpbrk(Str,"*?")!=NULL);
+  }
+  
+--- 226,250 ----
+  }
+  
+  
++ #ifndef __BIONIC__
+  // 'Ext' is an extension without the leading dot, like L"rar".
+  bool CmpExt(const wchar *Name,const wchar *Ext)
+  {
+    wchar *NameExt=GetExt(Name);
+    return(NameExt!=NULL && wcsicomp(NameExt+1,Ext)==0);
+  }
++ #endif
+  
+! #ifndef __BIONIC__
+  bool IsWildcard(const char *Str,const wchar *StrW)
++ #else
++ bool IsWildcard(const char *Str)
++ #endif
+  {
++ #ifndef __BIONIC__
+    if (StrW!=NULL && *StrW!=0)
+      return(wcspbrk(StrW,L"*?")!=NULL);
++ #endif
+    return(Str==NULL ? false:strpbrk(Str,"*?")!=NULL);
+  }
+  
+***************
+*** 268,274 ****
+      return(-1);
+  }
+  
+! 
+  int GetPathDisk(const wchar *Path)
+  {
+    if (IsDiskLetter(Path))
+--- 277,283 ----
+      return(-1);
+  }
+  
+! #ifndef __BIONIC__
+  int GetPathDisk(const wchar *Path)
+  {
+    if (IsDiskLetter(Path))
+***************
+*** 276,281 ****
+--- 285,291 ----
+    else
+      return(-1);
+  }
++ #endif
+  
+  
+  void AddEndSlash(char *Path)
+***************
+*** 285,298 ****
+      strcat(LastChar,PATHDIVIDER);
+  }
+  
+! 
+  void AddEndSlash(wchar *Path)
+  {
+    size_t Length=wcslen(Path);
+    if (Length>0 && Path[Length-1]!=CPATHDIVIDER)
+      wcscat(Path,PATHDIVIDERW);
+  }
+! 
+  
+  // Returns file path including the trailing path separator symbol.
+  void GetFilePath(const char *FullName,char *Path,int MaxLength)
+--- 295,308 ----
+      strcat(LastChar,PATHDIVIDER);
+  }
+  
+! #ifndef __BIONIC__
+  void AddEndSlash(wchar *Path)
+  {
+    size_t Length=wcslen(Path);
+    if (Length>0 && Path[Length-1]!=CPATHDIVIDER)
+      wcscat(Path,PATHDIVIDERW);
+  }
+! #endif
+  
+  // Returns file path including the trailing path separator symbol.
+  void GetFilePath(const char *FullName,char *Path,int MaxLength)
+***************
+*** 302,308 ****
+    Path[PathLength]=0;
+  }
+  
+! 
+  // Returns file path including the trailing path separator symbol.
+  void GetFilePath(const wchar *FullName,wchar *Path,int MaxLength)
+  {
+--- 312,318 ----
+    Path[PathLength]=0;
+  }
+  
+! #ifndef __BIONIC__
+  // Returns file path including the trailing path separator symbol.
+  void GetFilePath(const wchar *FullName,wchar *Path,int MaxLength)
+  {
+***************
+*** 310,316 ****
+    wcsncpy(Path,FullName,PathLength);
+    Path[PathLength]=0;
+  }
+! 
+  
+  // Removes name and returns file path without the trailing
+  // path separator symbol.
+--- 320,326 ----
+    wcsncpy(Path,FullName,PathLength);
+    Path[PathLength]=0;
+  }
+! #endif
+  
+  // Removes name and returns file path without the trailing
+  // path separator symbol.
+***************
+*** 322,328 ****
+    *Name=0;
+  }
+  
+! 
+  // Removes name and returns file path without the trailing
+  // path separator symbol.
+  void RemoveNameFromPath(wchar *Path)
+--- 332,338 ----
+    *Name=0;
+  }
+  
+! #ifndef __BIONIC__
+  // Removes name and returns file path without the trailing
+  // path separator symbol.
+  void RemoveNameFromPath(wchar *Path)
+***************
+*** 332,338 ****
+      Name--;
+    *Name=0;
+  }
+! 
+  
+  #if defined(_WIN_ALL) && !defined(_WIN_CE) && !defined(SFX_MODULE)
+  void GetAppDataPath(char *Path)
+--- 342,348 ----
+      Name--;
+    *Name=0;
+  }
+! #endif
+  
+  #if defined(_WIN_ALL) && !defined(_WIN_CE) && !defined(SFX_MODULE)
+  void GetAppDataPath(char *Path)
+***************
+*** 360,365 ****
+--- 370,376 ----
+  
+  
+  #if defined(_WIN_ALL) && !defined(_WIN_CE) && !defined(SFX_MODULE)
++ #ifndef __BIONIC__
+  void GetAppDataPath(wchar *Path)
+  {
+    LPMALLOC g_pMalloc;
+***************
+*** 382,387 ****
+--- 393,399 ----
+    g_pMalloc->Free(ppidl);
+  }
+  #endif
++ #endif
+  
+  
+  #if defined(_WIN_ALL) && !defined(_WIN_CE) && !defined(SFX_MODULE)
+***************
+*** 405,410 ****
+--- 417,423 ----
+  
+  
+  #if defined(_WIN_ALL) && !defined(_WIN_CE) && !defined(SFX_MODULE)
++ #ifndef __BIONIC__
+  void GetRarDataPath(wchar *Path)
+  {
+    *Path=0;
+***************
+*** 422,427 ****
+--- 435,441 ----
+      GetAppDataPath(Path);
+  }
+  #endif
++ #endif
+  
+  
+  #ifndef SFX_MODULE
+***************
+*** 483,488 ****
+--- 497,503 ----
+  
+  
+  #if defined(_WIN_ALL) && !defined(SFX_MODULE)
++ #ifndef __BIONIC__
+  bool EnumConfigPaths(wchar *Path,int Number)
+  {
+    if (Number<0 || Number>1)
+***************
+*** 497,502 ****
+--- 512,518 ----
+    return(true);
+  }
+  #endif
++ #endif
+  
+  
+  #ifndef SFX_MODULE
+***************
+*** 515,520 ****
+--- 531,537 ----
+  
+  
+  #if defined(_WIN_ALL) && !defined(SFX_MODULE)
++ #ifndef __BIONIC__
+  void GetConfigName(const wchar *Name,wchar *FullName,bool CheckExist)
+  {
+    *FullName=0;
+***************
+*** 527,532 ****
+--- 544,550 ----
+    }
+  }
+  #endif
++ #endif
+  
+  
+  // Returns a pointer to rightmost digit of volume number.
+***************
+*** 562,568 ****
+    return(ChPtr);
+  }
+  
+! 
+  // Returns a pointer to rightmost digit of volume number.
+  wchar* GetVolNumPart(wchar *ArcName)
+  {
+--- 580,586 ----
+    return(ChPtr);
+  }
+  
+! #ifndef __BIONIC__
+  // Returns a pointer to rightmost digit of volume number.
+  wchar* GetVolNumPart(wchar *ArcName)
+  {
+***************
+*** 595,603 ****
+    }
+    return(ChPtr);
+  }
+  
+! 
+  void NextVolumeName(char *ArcName,wchar *ArcNameW,uint MaxLength,bool OldNumbering)
+  {
+    if (ArcName!=NULL && *ArcName!=0)
+    {
+--- 613,625 ----
+    }
+    return(ChPtr);
+  }
++ #endif
+  
+! #ifndef __BIONIC__
+  void NextVolumeName(char *ArcName,wchar *ArcNameW,uint MaxLength,bool OldNumbering)
++ #else
++ void NextVolumeName(char *ArcName,uint MaxLength,bool OldNumbering)
++ #endif
+  {
+    if (ArcName!=NULL && *ArcName!=0)
+    {
+***************
+*** 646,652 ****
+            }
+        }
+    }
+! 
+    if (ArcNameW!=NULL && *ArcNameW!=0)
+    {
+      wchar *ChPtr;
+--- 668,674 ----
+            }
+        }
+    }
+! #ifndef __BIONIC__
+    if (ArcNameW!=NULL && *ArcNameW!=0)
+    {
+      wchar *ChPtr;
+***************
+*** 694,699 ****
+--- 716,722 ----
+            }
+        }
+    }
++ #endif
+  }
+  
+  
+***************
+*** 722,728 ****
+    return(*Name!=0 && strpbrk(Name,"?*<>|\"")==NULL);
+  }
+  
+! 
+  bool IsNameUsable(const wchar *Name)
+  {
+  #ifndef _UNIX
+--- 745,751 ----
+    return(*Name!=0 && strpbrk(Name,"?*<>|\"")==NULL);
+  }
+  
+! #ifndef __BIONIC__
+  bool IsNameUsable(const wchar *Name)
+  {
+  #ifndef _UNIX
+***************
+*** 738,748 ****
+  #endif
+    return(*Name!=0 && wcspbrk(Name,L"?*<>|\"")==NULL);
+  }
+! 
+  
+  void MakeNameUsable(char *Name,bool Extended)
+  {
+  #ifdef _WIN_ALL
+    // In Windows we also need to convert characters not defined in current
+    // code page. This double conversion changes them to '?', which is
+    // catched by code below.
+--- 761,772 ----
+  #endif
+    return(*Name!=0 && wcspbrk(Name,L"?*<>|\"")==NULL);
+  }
+! #endif
+  
+  void MakeNameUsable(char *Name,bool Extended)
+  {
+  #ifdef _WIN_ALL
++ #ifndef __BIONIC__
+    // In Windows we also need to convert characters not defined in current
+    // code page. This double conversion changes them to '?', which is
+    // catched by code below.
+***************
+*** 752,757 ****
+--- 776,782 ----
+    WideToChar(NameW,Name,NameLength+1);
+    Name[NameLength]=0;
+  #endif
++ #endif
+    for (char *s=Name;*s!=0;s=charnext(s))
+    {
+      if (strchr(Extended ? "?*<>|\"":"?*",*s)!=NULL || Extended && (byte)*s<32)
+***************
+*** 769,775 ****
+    }
+  }
+  
+! 
+  void MakeNameUsable(wchar *Name,bool Extended)
+  {
+    for (wchar *s=Name;*s!=0;s++)
+--- 794,800 ----
+    }
+  }
+  
+! #ifndef __BIONIC__
+  void MakeNameUsable(wchar *Name,bool Extended)
+  {
+    for (wchar *s=Name;*s!=0;s++)
+***************
+*** 784,789 ****
+--- 809,815 ----
+  #endif
+    }
+  }
++ #endif
+  
+  
+  char* UnixSlashToDos(char *SrcName,char *DestName,uint MaxLength)
+***************
+*** 829,835 ****
+    return(DestName==NULL ? SrcName:DestName);
+  }
+  
+! 
+  wchar* UnixSlashToDos(wchar *SrcName,wchar *DestName,uint MaxLength)
+  {
+    if (DestName!=NULL && DestName!=SrcName)
+--- 855,861 ----
+    return(DestName==NULL ? SrcName:DestName);
+  }
+  
+! #ifndef __BIONIC__
+  wchar* UnixSlashToDos(wchar *SrcName,wchar *DestName,uint MaxLength)
+  {
+    if (DestName!=NULL && DestName!=SrcName)
+***************
+*** 850,857 ****
+    }
+    return(DestName==NULL ? SrcName:DestName);
+  }
+  
+! 
+  wchar* DosSlashToUnix(wchar *SrcName,wchar *DestName,uint MaxLength)
+  {
+    if (DestName!=NULL && DestName!=SrcName)
+--- 876,884 ----
+    }
+    return(DestName==NULL ? SrcName:DestName);
+  }
++ #endif
+  
+! #ifndef __BIONIC__
+  wchar* DosSlashToUnix(wchar *SrcName,wchar *DestName,uint MaxLength)
+  {
+    if (DestName!=NULL && DestName!=SrcName)
+***************
+*** 872,878 ****
+    }
+    return(DestName==NULL ? SrcName:DestName);
+  }
+! 
+  
+  void ConvertNameToFull(const char *Src,char *Dest)
+  {
+--- 899,905 ----
+    }
+    return(DestName==NULL ? SrcName:DestName);
+  }
+! #endif
+  
+  void ConvertNameToFull(const char *Src,char *Dest)
+  {
+***************
+*** 902,908 ****
+  #endif
+  }
+  
+! 
+  void ConvertNameToFull(const wchar *Src,wchar *Dest)
+  {
+    if (Src==NULL || *Src==0)
+--- 929,935 ----
+  #endif
+  }
+  
+! #ifndef __BIONIC__
+  void ConvertNameToFull(const wchar *Src,wchar *Dest)
+  {
+    if (Src==NULL || *Src==0)
+***************
+*** 941,953 ****
+    CharToWide(AnsiName,Dest);
+  #endif
+  }
+! 
+  
+  bool IsFullPath(const char *Path)
+  {
+    char PathOnly[NM];
+    GetFilePath(Path,PathOnly,ASIZE(PathOnly));
+    if (IsWildcard(PathOnly,NULL))
+      return(true);
+  #if defined(_WIN_ALL) || defined(_EMX)
+    return(Path[0]=='\\' && Path[1]=='\\' ||
+--- 968,984 ----
+    CharToWide(AnsiName,Dest);
+  #endif
+  }
+! #endif
+  
+  bool IsFullPath(const char *Path)
+  {
+    char PathOnly[NM];
+    GetFilePath(Path,PathOnly,ASIZE(PathOnly));
++ #ifndef __BIONIC__
+    if (IsWildcard(PathOnly,NULL))
++ #else
++   if (IsWildcard(PathOnly))
++ #endif
+      return(true);
+  #if defined(_WIN_ALL) || defined(_EMX)
+    return(Path[0]=='\\' && Path[1]=='\\' ||
+***************
+*** 957,963 ****
+  #endif
+  }
+  
+! 
+  bool IsFullPath(const wchar *Path)
+  {
+    wchar PathOnly[NM];
+--- 988,994 ----
+  #endif
+  }
+  
+! #ifndef __BIONIC__
+  bool IsFullPath(const wchar *Path)
+  {
+    wchar PathOnly[NM];
+***************
+*** 971,977 ****
+    return(IsPathDiv(Path[0]));
+  #endif
+  }
+! 
+  
+  bool IsDiskLetter(const char *Path)
+  {
+--- 1002,1008 ----
+    return(IsPathDiv(Path[0]));
+  #endif
+  }
+! #endif
+  
+  bool IsDiskLetter(const char *Path)
+  {
+***************
+*** 979,991 ****
+    return(Letter>='A' && Letter<='Z' && IsDriveDiv(Path[1]));
+  }
+  
+! 
+  bool IsDiskLetter(const wchar *Path)
+  {
+    wchar Letter=etoupperw(Path[0]);
+    return(Letter>='A' && Letter<='Z' && IsDriveDiv(Path[1]));
+  }
+! 
+  
+  void GetPathRoot(const char *Path,char *Root)
+  {
+--- 1010,1022 ----
+    return(Letter>='A' && Letter<='Z' && IsDriveDiv(Path[1]));
+  }
+  
+! #ifndef __BIONIC__
+  bool IsDiskLetter(const wchar *Path)
+  {
+    wchar Letter=etoupperw(Path[0]);
+    return(Letter>='A' && Letter<='Z' && IsDriveDiv(Path[1]));
+  }
+! #endif
+  
+  void GetPathRoot(const char *Path,char *Root)
+  {
+***************
+*** 1009,1015 ****
+      }
+  }
+  
+! 
+  void GetPathRoot(const wchar *Path,wchar *Root)
+  {
+    *Root=0;
+--- 1040,1046 ----
+      }
+  }
+  
+! #ifndef __BIONIC__
+  void GetPathRoot(const wchar *Path,wchar *Root)
+  {
+    *Root=0;
+***************
+*** 1031,1039 ****
+        }
+      }
+  }
+  
+! 
+  int ParseVersionFileName(char *Name,wchar *NameW,bool Truncate)
+  {
+    int Version=0;
+    char *VerText=strrchrd(Name,';');
+--- 1062,1074 ----
+        }
+      }
+  }
++ #endif
+  
+! #ifndef __BIONIC__
+  int ParseVersionFileName(char *Name,wchar *NameW,bool Truncate)
++ #else
++ int ParseVersionFileName(char *Name,bool Truncate)
++ #endif
+  {
+    int Version=0;
+    char *VerText=strrchrd(Name,';');
+***************
+*** 1043,1048 ****
+--- 1078,1084 ----
+      if (Truncate)
+        *VerText=0;
+    }
++ #ifndef __BIONIC__
+    if (NameW!=NULL)
+    {
+      wchar *VerTextW=wcsrchr(NameW,';');
+***************
+*** 1054,1059 ****
+--- 1090,1096 ----
+          *VerTextW=0;
+      }
+    }
++ #endif
+    return(Version);
+  }
+  
+***************
+*** 1103,1109 ****
+--- 1140,1150 ----
+      while (Find.Next(&FD))
+      {
+        Archive Arc;
++ #ifndef __BIONIC__
+        if (Arc.Open(FD.Name,FD.NameW,0) && Arc.IsArchive(true) && !Arc.NotFirstVolume)
++ #else
++       if (Arc.Open(FD.Name,0) && Arc.IsArchive(true) && !Arc.NotFirstVolume)
++ #endif
+        {
+          strcpy(FirstName,FD.Name);
+          break;
+***************
+*** 1116,1121 ****
+--- 1157,1163 ----
+  
+  
+  #if !defined(SFX_MODULE) && !defined(SETUP)
++ #ifndef __BIONIC__
+  // Get the name of first volume. Return the leftmost digit of volume number.
+  wchar* VolNameToFirstName(const wchar *VolName,wchar *FirstName,bool NewNumbering)
+  {
+***************
+*** 1170,1204 ****
+--- 1212,1267 ----
+    return(VolNumStart);
+  }
+  #endif
++ #endif
+  
+  
+  #ifndef SFX_MODULE
++ #ifndef __BIONIC__
+  static void GenArcName(char *ArcName,wchar *ArcNameW,char *GenerateMask,
+                         uint ArcNumber,bool &ArcNumPresent);
+  
+  void GenerateArchiveName(char *ArcName,wchar *ArcNameW,size_t MaxSize,
+                           char *GenerateMask,bool Archiving)
++ #else
++ static void GenArcName(char *ArcName,char *GenerateMask,
++                        uint ArcNumber,bool &ArcNumPresent);
++ 
++ void GenerateArchiveName(char *ArcName,size_t MaxSize,
++                          char *GenerateMask,bool Archiving)
++ #endif
+  {
+    // Must be enough space for archive name plus all stuff in mask plus
+    // extra overhead produced by mask 'N' (archive number) characters.
+    // One 'N' character can result in several numbers if we process more
+    // than 9 archives.
+    char NewName[NM+MAX_GENERATE_MASK+20];
++ #ifndef __BIONIC__
+    wchar NewNameW[NM+MAX_GENERATE_MASK+20];
++ #endif
+  
+    uint ArcNumber=1;
+    while (true) // Loop for 'N' (archive number) processing.
+    {
+      strncpyz(NewName,NullToEmpty(ArcName),ASIZE(NewName));
++ #ifndef __BIONIC__
+      wcsncpyz(NewNameW,NullToEmpty(ArcNameW),ASIZE(NewNameW));
++ #endif
+      
+      bool ArcNumPresent=false;
+  
++ #ifndef __BIONIC__
+      GenArcName(NewName,NewNameW,GenerateMask,ArcNumber,ArcNumPresent);
++ #else
++     GenArcName(NewName,GenerateMask,ArcNumber,ArcNumPresent);
++ #endif
+      
+      if (!ArcNumPresent)
+        break;
++ #ifndef __BIONIC__
+      if (!FileExist(NewName,NewNameW))
++ #else
++     if (!FileExist(NewName))
++ #endif
+      {
+        if (!Archiving && ArcNumber>1)
+        {
+***************
+*** 1206,1213 ****
+--- 1269,1280 ----
+          // existing archive before the first unused name. So we generate
+          // the name for (ArcNumber-1) below.
+          strncpyz(NewName,NullToEmpty(ArcName),ASIZE(NewName));
++ #ifndef __BIONIC__
+          wcsncpyz(NewNameW,NullToEmpty(ArcNameW),ASIZE(NewNameW));
+          GenArcName(NewName,NewNameW,GenerateMask,ArcNumber-1,ArcNumPresent);
++ #else
++         GenArcName(NewName,GenerateMask,ArcNumber-1,ArcNumPresent);
++ #endif
+        }
+        break;
+      }
+***************
+*** 1215,1227 ****
+    }
+    if (ArcName!=NULL && *ArcName!=0)
+      strncpyz(ArcName,NewName,MaxSize);
+    if (ArcNameW!=NULL && *ArcNameW!=0)
+      wcsncpyz(ArcNameW,NewNameW,MaxSize);
+  }
+  
+! 
+  void GenArcName(char *ArcName,wchar *ArcNameW,char *GenerateMask,
+                  uint ArcNumber,bool &ArcNumPresent)
+  {
+    bool Prefix=false;
+    if (*GenerateMask=='+')
+--- 1282,1300 ----
+    }
+    if (ArcName!=NULL && *ArcName!=0)
+      strncpyz(ArcName,NewName,MaxSize);
++ #ifndef __BIONIC__
+    if (ArcNameW!=NULL && *ArcNameW!=0)
+      wcsncpyz(ArcNameW,NewNameW,MaxSize);
++ #endif
+  }
+  
+! #ifndef __BIONIC__
+  void GenArcName(char *ArcName,wchar *ArcNameW,char *GenerateMask,
+                  uint ArcNumber,bool &ArcNumPresent)
++ #else
++ void GenArcName(char *ArcName,char *GenerateMask,
++                 uint ArcNumber,bool &ArcNumPresent)
++ #endif
+  {
+    bool Prefix=false;
+    if (*GenerateMask=='+')
+***************
+*** 1293,1298 ****
+--- 1366,1372 ----
+      }
+    }
+  
++ #ifndef __BIONIC__
+    wchar ExtW[NM];
+    *ExtW=0;
+    if (ArcNameW!=NULL && *ArcNameW!=0)
+***************
+*** 1306,1311 ****
+--- 1380,1386 ----
+        *DotW=0;
+      }
+    }
++ #endif
+  
+    int WeekDay=rlt.wDay==0 ? 6:rlt.wDay-1;
+    int StartWeekDay=rlt.yDay-WeekDay;
+***************
+*** 1382,1389 ****
+--- 1457,1466 ----
+      DateText[++J]=0;
+    }
+  
++ #ifndef __BIONIC__
+    wchar DateTextW[ASIZE(DateText)];
+    CharToWide(DateText,DateTextW);
++ #endif
+  
+    if (Prefix)
+    {
+***************
+*** 1396,1401 ****
+--- 1473,1479 ----
+        strcat(NewName,PointToName(ArcName));
+        strcpy(ArcName,NewName);
+      }
++ #ifndef __BIONIC__
+      if (ArcNameW!=NULL && *ArcNameW!=0)
+      {
+        wchar NewNameW[NM];
+***************
+*** 1405,1426 ****
+        wcscat(NewNameW,PointToName(ArcNameW));
+        wcscpy(ArcNameW,NewNameW);
+      }
+    }
+    else
+    {
+      if (ArcName!=NULL && *ArcName!=0)
+        strcat(ArcName,DateText);
+      if (ArcNameW!=NULL && *ArcNameW!=0)
+        wcscat(ArcNameW,DateTextW);
+    }
+    if (ArcName!=NULL && *ArcName!=0)
+      strcat(ArcName,Ext);
+    if (ArcNameW!=NULL && *ArcNameW!=0)
+      wcscat(ArcNameW,ExtW);
+  }
+  #endif
+  
+! 
+  wchar* GetWideName(const char *Name,const wchar *NameW,wchar *DestW,size_t DestSize)
+  {
+    if (NameW!=NULL && *NameW!=0)
+--- 1483,1509 ----
+        wcscat(NewNameW,PointToName(ArcNameW));
+        wcscpy(ArcNameW,NewNameW);
+      }
++ #endif
+    }
+    else
+    {
+      if (ArcName!=NULL && *ArcName!=0)
+        strcat(ArcName,DateText);
++ #ifndef __BIONIC__
+      if (ArcNameW!=NULL && *ArcNameW!=0)
+        wcscat(ArcNameW,DateTextW);
++ #endif
+    }
+    if (ArcName!=NULL && *ArcName!=0)
+      strcat(ArcName,Ext);
++ #ifndef __BIONIC__
+    if (ArcNameW!=NULL && *ArcNameW!=0)
+      wcscat(ArcNameW,ExtW);
++ #endif
+  }
+  #endif
+  
+! #ifndef __BIONIC__
+  wchar* GetWideName(const char *Name,const wchar *NameW,wchar *DestW,size_t DestSize)
+  {
+    if (NameW!=NULL && *NameW!=0)
+***************
+*** 1440,1447 ****
+  
+    return(DestW);
+  }
+  
+! 
+  // Unlike WideToChar, always returns the zero terminated string,
+  // even if the destination buffer size is not enough.
+  char* GetAsciiName(const wchar *NameW,char *Name,size_t DestSize)
+--- 1523,1531 ----
+  
+    return(DestW);
+  }
++ #endif
+  
+! #ifndef __BIONIC__
+  // Unlike WideToChar, always returns the zero terminated string,
+  // even if the destination buffer size is not enough.
+  char* GetAsciiName(const wchar *NameW,char *Name,size_t DestSize)
+***************
+*** 1455,1457 ****
+--- 1539,1542 ----
+      *Name=0;
+    return Name;
+  }
++ #endif
+diff -crB orig/pathfn.hpp src/pathfn.hpp
+*** orig/pathfn.hpp	2013-12-28 19:18:09.107077946 +0100
+--- src/pathfn.hpp	2013-12-28 19:18:09.117077946 +0100
+***************
+*** 2,66 ****
+--- 2,124 ----
+  #define _RAR_PATHFN_
+  
+  char* PointToName(const char *Path);
++ #ifndef __BIONIC__
+  wchar* PointToName(const wchar *Path);
++ #endif
+  char* PointToLastChar(const char *Path);
++ #ifndef __BIONIC__
+  wchar* PointToLastChar(const wchar *Path);
++ #endif
+  char* ConvertPath(const char *SrcPath,char *DestPath);
++ #ifndef __BIONIC__
+  wchar* ConvertPath(const wchar *SrcPath,wchar *DestPath);
++ #endif
+  void SetExt(char *Name,const char *NewExt);
++ #ifndef __BIONIC__
+  void SetExt(wchar *Name,const wchar *NewExt);
++ #endif
+  void SetSFXExt(char *SFXName);
++ #ifndef __BIONIC__
+  void SetSFXExt(wchar *SFXName);
++ #endif
+  char *GetExt(const char *Name);
++ #ifndef __BIONIC__
+  wchar *GetExt(const wchar *Name);
++ #endif
+  bool CmpExt(const char *Name,const char *Ext);
++ #ifndef __BIONIC__
+  bool CmpExt(const wchar *Name,const wchar *Ext);
++ #endif
++ #ifndef __BIONIC__
+  bool IsWildcard(const char *Str,const wchar *StrW=NULL);
++ #else
++ bool IsWildcard(const char *Str);
++ #endif
+  bool IsPathDiv(int Ch);
+  bool IsDriveDiv(int Ch);
+  int GetPathDisk(const char *Path);
++ #ifndef __BIONIC__
+  int GetPathDisk(const wchar *Path);
++ #endif
+  void AddEndSlash(char *Path);
++ #ifndef __BIONIC__
+  void AddEndSlash(wchar *Path);
++ #endif
+  void GetFilePath(const char *FullName,char *Path,int MaxLength);
++ #ifndef __BIONIC__
+  void GetFilePath(const wchar *FullName,wchar *Path,int MaxLength);
++ #endif
+  void RemoveNameFromPath(char *Path);
++ #ifndef __BIONIC__
+  void RemoveNameFromPath(wchar *Path);
++ #endif
+  void GetAppDataPath(char *Path);
++ #ifndef __BIONIC__
+  void GetAppDataPath(wchar *Path);
++ #endif
+  void GetRarDataPath(char *Path);
++ #ifndef __BIONIC__
+  void GetRarDataPath(wchar *Path);
+  bool EnumConfigPaths(wchar *Path,int Number);
++ #endif
+  bool EnumConfigPaths(char *Path,int Number);
+  void GetConfigName(const char *Name,char *FullName,bool CheckExist);
++ #ifndef __BIONIC__
+  void GetConfigName(const wchar *Name,wchar *FullName,bool CheckExist);
++ #endif
+  char* GetVolNumPart(char *ArcName);
++ #ifndef __BIONIC__
+  wchar* GetVolNumPart(wchar *ArcName);
+  void NextVolumeName(char *ArcName,wchar *ArcNameW,uint MaxLength,bool OldNumbering);
++ #else
++ void NextVolumeName(char *ArcName,uint MaxLength,bool OldNumbering);
++ #endif
+  bool IsNameUsable(const char *Name);
++ #ifndef __BIONIC__
+  bool IsNameUsable(const wchar *Name);
++ #endif
+  void MakeNameUsable(char *Name,bool Extended);
++ #ifndef __BIONIC__
+  void MakeNameUsable(wchar *Name,bool Extended);
++ #endif
+  char* UnixSlashToDos(char *SrcName,char *DestName=NULL,uint MaxLength=NM);
+  char* DosSlashToUnix(char *SrcName,char *DestName=NULL,uint MaxLength=NM);
++ #ifndef __BIONIC__
+  wchar* UnixSlashToDos(wchar *SrcName,wchar *DestName=NULL,uint MaxLength=NM);
+  wchar* DosSlashToUnix(wchar *SrcName,wchar *DestName=NULL,uint MaxLength=NM);
++ #endif
+  void ConvertNameToFull(const char *Src,char *Dest);
++ #ifndef __BIONIC__
+  void ConvertNameToFull(const wchar *Src,wchar *Dest);
++ #endif
+  bool IsFullPath(const char *Path);
++ #ifndef __BIONIC__
+  bool IsFullPath(const wchar *Path);
++ #endif
+  bool IsDiskLetter(const char *Path);
++ #ifndef __BIONIC__
+  bool IsDiskLetter(const wchar *Path);
++ #endif
+  void GetPathRoot(const char *Path,char *Root);
++ #ifndef __BIONIC__
+  void GetPathRoot(const wchar *Path,wchar *Root);
+  int ParseVersionFileName(char *Name,wchar *NameW,bool Truncate);
++ #else
++ int ParseVersionFileName(char *Name,bool Truncate);
++ #endif
+  char* VolNameToFirstName(const char *VolName,char *FirstName,bool NewNumbering);
++ #ifndef __BIONIC__
+  wchar* VolNameToFirstName(const wchar *VolName,wchar *FirstName,bool NewNumbering);
+  wchar* GetWideName(const char *Name,const wchar *NameW,wchar *DestW,size_t DestSize);
+  char* GetAsciiName(const wchar *NameW,char *Name,size_t DestSize);
++ #endif
+  
+  #ifndef SFX_MODULE
++ #ifndef __BIONIC__
+  void GenerateArchiveName(char *ArcName,wchar *ArcNameW,size_t MaxSize,char *GenerateMask,bool Archiving);
++ #else
++ void GenerateArchiveName(char *ArcName,size_t MaxSize,char *GenerateMask,bool Archiving);
++ #endif
+  #endif
+  
+  #endif
+diff -crB orig/rar.hpp src/rar.hpp
+*** orig/rar.hpp	2013-12-28 19:18:09.107077946 +0100
+--- src/rar.hpp	2013-12-28 19:18:09.117077946 +0100
+***************
+*** 15,21 ****
+--- 15,23 ----
+  #include "rartypes.hpp"
+  #include "rardefs.hpp"
+  #include "rarlang.hpp"
++ #ifdef __BIONIC__
+  #include "unicode.hpp"
++ #endif
+  #include "errhnd.hpp"
+  #include "array.hpp"
+  #include "timefn.hpp"
+diff -crB orig/recvol.cpp src/recvol.cpp
+*** orig/recvol.cpp	2013-12-28 19:18:09.108077946 +0100
+--- src/recvol.cpp	2013-12-28 19:18:09.118077946 +0100
+***************
+*** 67,80 ****
+    }
+  }
+  
+! 
+  bool RecVolumes::Restore(RAROptions *Cmd,const char *Name,
+                           const wchar *NameW,bool Silent)
+  {
+    char ArcName[NM];
+    wchar ArcNameW[NM];
+    strcpy(ArcName,Name);
+    wcscpy(ArcNameW,NameW);
+    char *Ext=GetExt(ArcName);
+    bool NewStyle=false;
+    bool RevName=Ext!=NULL && stricomp(Ext,".rev")==0;
+--- 67,87 ----
+    }
+  }
+  
+! #ifndef __BIONIC__
+  bool RecVolumes::Restore(RAROptions *Cmd,const char *Name,
+                           const wchar *NameW,bool Silent)
++ #else
++ bool RecVolumes::Restore(RAROptions *Cmd,const char *Name,bool Silent)
++ #endif
+  {
+    char ArcName[NM];
++ #ifndef __BIONIC__
+    wchar ArcNameW[NM];
++ #endif
+    strcpy(ArcName,Name);
++ #ifndef __BIONIC__
+    wcscpy(ArcNameW,NameW);
++ #endif
+    char *Ext=GetExt(ArcName);
+    bool NewStyle=false;
+    bool RevName=Ext!=NULL && stricomp(Ext,".rev")==0;
+***************
+*** 94,99 ****
+--- 101,107 ----
+        Ext--;
+      strcpy(Ext,"*.*");
+  
++ #ifndef __BIONIC__
+      if (*ArcNameW!=0)
+      {
+        wchar *ExtW=GetExt(ArcNameW);
+***************
+*** 111,135 ****
+--- 119,156 ----
+          ExtW--;
+        wcscpy(ExtW,L"*.*");
+      }
++ #endif
+      
+      FindFile Find;
+      Find.SetMask(ArcName);
++ #ifndef __BIONIC__
+      Find.SetMaskW(ArcNameW);
++ #endif
+      FindData fd;
+      while (Find.Next(&fd))
+      {
+        Archive Arc(Cmd);
++ #ifndef __BIONIC__
+        if (Arc.WOpen(fd.Name,fd.NameW) && Arc.IsArchive(true))
++ #else
++       if (Arc.WOpen(fd.Name) && Arc.IsArchive(true))
++ #endif
+        {
+          strcpy(ArcName,fd.Name);
++ #ifndef __BIONIC__
+          wcscpy(ArcNameW,fd.NameW);
++ #endif
+          break;
+        }
+      }
+    }
+  
+    Archive Arc(Cmd);
++ #ifndef __BIONIC__
+    if (!Arc.WCheckOpen(ArcName,ArcNameW))
++ #else
++   if (!Arc.WCheckOpen(ArcName))
++ #endif
+      return(false);
+    if (!Arc.Volume)
+    {
+***************
+*** 150,155 ****
+--- 171,177 ----
+    wchar RecVolMaskW[NM];
+    size_t BaseNamePartLengthW=0;
+    *RecVolMaskW=0;
++ #ifndef __BIONIC__
+    if (*ArcNameW!=0)
+    {
+      wchar *VolNumStartW=VolNameToFirstName(ArcNameW,ArcNameW,NewNumbering);
+***************
+*** 157,162 ****
+--- 179,185 ----
+      BaseNamePartLengthW=VolNumStartW-ArcNameW;
+      wcscpy(RecVolMaskW+BaseNamePartLengthW,L"*.rev");
+    }
++ #endif
+  
+  
+  #ifndef SILENT
+***************
+*** 170,184 ****
+--- 193,213 ----
+  
+    FindFile Find;
+    Find.SetMask(RecVolMask);
++ #ifndef __BIONIC__
+    Find.SetMaskW(RecVolMaskW);
++ #endif
+    FindData RecData;
+    int FileNumber=0,RecVolNumber=0,FoundRecVolumes=0,MissingVolumes=0;
+    char PrevName[NM];
++ #ifndef __BIONIC__
+    wchar PrevNameW[NM];
++ #endif
+    while (Find.Next(&RecData))
+    {
+      char *CurName=RecData.Name;
++ #ifndef __BIONIC__
+      wchar *CurNameW=RecData.NameW;
++ #endif
+      int P[3];
+      if (!RevName && !NewStyle)
+      {
+***************
+*** 199,204 ****
+--- 228,234 ----
+            NewStyle=false;
+        }
+  
++ #ifndef __BIONIC__
+        wchar *DotW=GetExt(CurNameW);
+        if (DotW!=NULL)
+        {
+***************
+*** 213,218 ****
+--- 243,249 ----
+          if (LineCount==2)
+            NewStyle=false;
+        }
++ #endif
+      }
+      if (NewStyle)
+      {
+***************
+*** 229,235 ****
+--- 260,270 ----
+  #endif
+  
+        File CurFile;
++ #ifndef __BIONIC__
+        CurFile.TOpen(CurName,CurNameW);
++ #else
++       CurFile.TOpen(CurName);
++ #endif
+        CurFile.Seek(0,SEEK_END);
+        int64 Length=CurFile.Tell();
+        CurFile.Seek(Length-7,SEEK_SET);
+***************
+*** 277,285 ****
+--- 312,326 ----
+      RecVolNumber=P[1];
+      FileNumber=P[2];
+      strcpy(PrevName,CurName);
++ #ifndef __BIONIC__
+      wcscpy(PrevNameW,CurNameW);
++ #endif
+      File *NewFile=new File;
++ #ifndef __BIONIC__
+      NewFile->TOpen(CurName,CurNameW);
++ #else
++     NewFile->TOpen(CurName);
++ #endif
+      SrcFile[FileNumber+P[0]-1]=NewFile;
+      FoundRecVolumes++;
+  #ifndef SILENT
+***************
+*** 301,316 ****
+--- 342,367 ----
+  
+    char LastVolName[NM];
+    *LastVolName=0;
++ #ifndef __BIONIC__
+    wchar LastVolNameW[NM];
+    *LastVolNameW=0;
++ #endif
+  
+    for (int CurArcNum=0;CurArcNum<FileNumber;CurArcNum++)
+    {
+      Archive *NewFile=new Archive;
++ #ifndef __BIONIC__
+      bool ValidVolume=FileExist(ArcName,ArcNameW);
++ #else
++     bool ValidVolume=FileExist(ArcName);
++ #endif
+      if (ValidVolume)
+      {
++ #ifndef __BIONIC__
+        NewFile->TOpen(ArcName,ArcNameW);
++ #else
++       NewFile->TOpen(ArcName);
++ #endif
+        ValidVolume=NewFile->IsArchive(false);
+        if (ValidVolume)
+        {
+***************
+*** 341,355 ****
+--- 392,412 ----
+          strcpy(NewName,ArcName);
+          strcat(NewName,".bad");
+  
++ #ifndef __BIONIC__
+          wchar NewNameW[NM];
+          wcscpy(NewNameW,ArcNameW);
+          if (*NewNameW!=0)
+            wcscat(NewNameW,L".bad");
++ #endif
+  #ifndef SILENT
+          mprintf(St(MBadArc),ArcName);
+          mprintf(St(MRenaming),ArcName,NewName);
+  #endif
++ #ifndef __BIONIC__
+          RenameFile(ArcName,ArcNameW,NewName,NewNameW);
++ #else
++         RenameFile(ArcName,NewName);
++ #endif
+        }
+        NewFile->Seek(0,SEEK_SET);
+      }
+***************
+*** 359,365 ****
+--- 416,426 ----
+        // so if we are called from extraction, we will be able to continue
+        // extracting. It may happen if .rar and .rev are on read-only disks
+        // like CDs.
++ #ifndef __BIONIC__
+        if (!NewFile->Create(ArcName,ArcNameW))
++ #else
++       if (!NewFile->Create(ArcName))
++ #endif
+        {
+          // We need to display the title of operation before the error message,
+          // to make clear for user that create error is related to recovery 
+***************
+*** 368,374 ****
+--- 429,439 ----
+  #ifndef SILENT
+          mprintf(St(MReconstructing));
+  #endif
++ #ifndef __BIONIC__
+          ErrHandler.CreateErrorMsg(ArcName,ArcNameW);
++ #else
++         ErrHandler.CreateErrorMsg(ArcName);
++ #endif
+          return false;
+        }
+  
+***************
+*** 378,384 ****
+--- 443,451 ----
+        if (CurArcNum==FileNumber-1)
+        {
+          strcpy(LastVolName,ArcName);
++ #ifndef __BIONIC__
+          wcscpy(LastVolNameW,ArcNameW);
++ #endif
+        }
+  
+  #ifndef SILENT
+***************
+*** 386,392 ****
+--- 453,463 ----
+  #endif
+      }
+      SrcFile[CurArcNum]=(File*)NewFile;
++ #ifndef __BIONIC__
+      NextVolumeName(ArcName,ArcNameW,ASIZE(ArcName),!NewNumbering);
++ #else
++     NextVolumeName(ArcName,ASIZE(ArcName),!NewNumbering);
++ #endif
+    }
+  
+  #ifndef SILENT
+***************
+*** 528,538 ****
+--- 599,617 ----
+        CurFile->Close();
+        SrcFile[I]=NULL;
+      }
++ #ifndef __BIONIC__
+    if (*LastVolName!=0 || *LastVolNameW!=0)
++ #else
++   if (*LastVolName!=0)
++ #endif
+    {
+      // Truncate the last volume to its real size.
+      Archive Arc(Cmd);
++ #ifndef __BIONIC__
+      if (Arc.Open(LastVolName,LastVolNameW,FMF_UPDATE) && Arc.IsArchive(true) &&
++ #else
++     if (Arc.Open(LastVolName,FMF_UPDATE) && Arc.IsArchive(true) &&
++ #endif
+          Arc.SearchBlock(ENDARC_HEAD))
+      {
+        Arc.Seek(Arc.NextBlockPos,SEEK_SET);
+diff -crB orig/recvol.hpp src/recvol.hpp
+*** orig/recvol.hpp	2013-12-28 19:18:09.108077946 +0100
+--- src/recvol.hpp	2013-12-28 19:18:09.118077946 +0100
+***************
+*** 13,20 ****
+--- 13,25 ----
+    public:
+      RecVolumes();
+      ~RecVolumes();
++ #ifndef __BIONIC__
+      void Make(RAROptions *Cmd,char *ArcName,wchar *ArcNameW);
+      bool Restore(RAROptions *Cmd,const char *Name,const wchar *NameW,bool Silent);
++ #else
++     void Make(RAROptions *Cmd,char *ArcName);
++     bool Restore(RAROptions *Cmd,const char *Name,bool Silent);
++ #endif
+  };
+  
+  #endif
+diff -crB orig/scantree.cpp src/scantree.cpp
+*** orig/scantree.cpp	2013-12-28 19:18:09.109077946 +0100
+--- src/scantree.cpp	2013-12-28 19:18:09.118077946 +0100
+***************
+*** 11,17 ****
+--- 11,19 ----
+  
+    SetAllMaskDepth=0;
+    *CurMask=0;
++ #ifndef __BIONIC__
+    *CurMaskW=0;
++ #endif
+    memset(FindStack,0,sizeof(FindStack));
+    Depth=0;
+    Errors=0;
+***************
+*** 61,69 ****
+--- 63,76 ----
+  
+  bool ScanTree::GetNextMask()
+  {
++ #ifndef __BIONIC__
+    if (!FileMasks->GetString(CurMask,CurMaskW,ASIZE(CurMask)))
++ #else
++   if (!FileMasks->GetString(CurMask,ASIZE(CurMask)))
++ #endif
+      return(false);
+  
++ #ifndef __BIONIC__
+    if (*CurMask==0 && *CurMaskW!=0)
+    {
+      // Unicode only mask is present. It is very unlikely in console tools,
+***************
+*** 72,80 ****
+--- 79,90 ----
+      // So let's convert Unicode to ASCII.
+      WideToChar(CurMaskW,CurMask,ASIZE(CurMask));
+    }
++ #endif
+  
+    CurMask[ASIZE(CurMask)-1]=0;
++ #ifndef __BIONIC__
+    CurMaskW[ASIZE(CurMaskW)-1]=0;
++ #endif
+  #ifdef _WIN_ALL
+    UnixSlashToDos(CurMask);
+  #endif
+***************
+*** 94,99 ****
+--- 104,110 ----
+    }
+    SpecPathLength=Name-CurMask;
+  
++ #ifndef __BIONIC__
+    bool WideName=(*CurMaskW!=0);
+  
+    if (WideName)
+***************
+*** 114,127 ****
+--- 125,141 ----
+      CharToWide(CurMask,WideMask);
+      SpecPathLengthW=PointToName(WideMask)-WideMask;
+    }
++ #endif
+    Depth=0;
+  
+    strcpy(OrigCurMask,CurMask);
+  
++ #ifndef __BIONIC__
+    // It is better to have non-empty OrigCurMaskW even if CurMaskW is empty.
+    // We need OrigCurMaskW to process Unicode masks generated by FindProc
+    // when encountering Unicode directory name.
+    GetWideName(CurMask,CurMaskW,OrigCurMaskW,ASIZE(OrigCurMaskW));
++ #endif
+  
+    return(true);
+  }
+***************
+*** 135,146 ****
+--- 149,168 ----
+    
+    if (FindStack[Depth]==NULL) // No FindFile object for this depth yet.
+    {
++ #ifndef __BIONIC__
+      bool Wildcards=IsWildcard(CurMask,CurMaskW);
++ #else
++     bool Wildcards=IsWildcard(CurMask);
++ #endif
+  
+      // If we have a file name without wildcards, we can try to use
+      // FastFind to optimize speed. For example, in Unix it results in
+      // stat call instead of opendir/readdir/closedir.
++ #ifndef __BIONIC__
+      bool FindCode=!Wildcards && FindFile::FastFind(CurMask,CurMaskW,FD,GetLinks);
++ #else
++     bool FindCode=!Wildcards && FindFile::FastFind(CurMask,FD,GetLinks);
++ #endif
+  
+      bool IsDir=FindCode && FD->IsDir;
+  
+***************
+*** 162,167 ****
+--- 184,190 ----
+        if (SearchAll)
+          strcpy(PointToName(SearchMask),MASKALL);
+        FindStack[Depth]->SetMask(SearchMask);
++ #ifndef __BIONIC__
+        if (*CurMaskW!=0)
+        {
+          wchar SearchMaskW[NM];
+***************
+*** 170,175 ****
+--- 193,199 ----
+            wcscpy(PointToName(SearchMaskW),MASKALLW);
+          FindStack[Depth]->SetMaskW(SearchMaskW);
+        }
++ #endif
+      }
+      else
+      {
+***************
+*** 193,199 ****
+--- 217,227 ----
+            if (Cmd!=NULL && Cmd->ExclCheck(CurMask,false,true,true))
+              RetCode=SCAN_NEXT;
+            else
++ #ifndef __BIONIC__
+              ErrHandler.OpenErrorMsg(ErrArcName,NULL,CurMask,CurMaskW);
++ #else
++             ErrHandler.OpenErrorMsg(ErrArcName,CurMask);
++ #endif
+          }
+  
+          // If we searched only for one file or directory in "fast find" 
+***************
+*** 204,210 ****
+--- 232,240 ----
+          // mode, directory recursing will quit by (Depth < 0) condition,
+          // which returns SCAN_DONE to calling function.
+          *CurMask=0;
++ #ifndef __BIONIC__
+          *CurMaskW=0;
++ #endif
+  
+          return(RetCode);
+        }
+***************
+*** 249,257 ****
+--- 279,291 ----
+  #endif
+  
+      char DirName[NM];
++ #ifndef __BIONIC__
+      wchar DirNameW[NM];
++ #endif
+      *DirName=0;
++ #ifndef __BIONIC__
+      *DirNameW=0;
++ #endif
+  
+      // Going to at least one directory level higher.
+      delete FindStack[Depth];
+***************
+*** 283,288 ****
+--- 317,323 ----
+          strcpy(PrevSlash,Mask);
+      }
+  
++ #ifndef __BIONIC__
+      if (*CurMaskW!=0)
+      {
+        wchar *Slash=wcsrchr(CurMaskW,CPATHDIVIDER);
+***************
+*** 305,324 ****
+--- 340,366 ----
+              *CurMaskW=Mask[0]=Mask[1]=0;
+          }
+          *Slash=0;
++ #ifndef __BIONIC__
+          wcscpy(DirNameW,CurMaskW);
+          wchar *PrevSlash=wcsrchr(CurMaskW,CPATHDIVIDER);
+          if (PrevSlash==NULL)
+            wcscpy(CurMaskW,Mask+1);
+          else
+            wcscpy(PrevSlash,Mask);
++ #endif
+        }
+  #ifndef _WIN_CE
+  //      if (LowAscii(CurMaskW))
+  //        *CurMaskW=0;
+  #endif
+      }
++ #endif
+      if (GetDirs==SCAN_GETDIRSTWICE &&
++ #ifndef __BIONIC__
+          FindFile::FastFind(DirName,DirNameW,FD,GetLinks) && FD->IsDir)
++ #else
++         FindFile::FastFind(DirName,FD,GetLinks) && FD->IsDir)
++ #endif
+      {
+        FD->Flags|=FDDF_SECONDDIR;
+        return(Error ? SCAN_ERROR:SCAN_SUCCESS);
+***************
+*** 367,372 ****
+--- 409,415 ----
+      AddEndSlash(CurMask);
+      strcat(CurMask,Mask);
+  
++ #ifndef __BIONIC__
+      if (*CurMaskW!=0 && *FD->NameW==0)
+        CharToWide(FD->Name,FD->NameW);
+      if (*FD->NameW!=0)
+***************
+*** 383,388 ****
+--- 426,432 ----
+        AddEndSlash(CurMaskW);
+        wcscat(CurMaskW,Mask);
+      }
++ #endif
+      Depth++;
+  
+      // We need to use OrigCurMask for depths less than SetAllMaskDepth
+diff -crB orig/scantree.hpp src/scantree.hpp
+*** orig/scantree.hpp	2013-12-28 19:18:09.109077946 +0100
+--- src/scantree.hpp	2013-12-28 19:18:09.118077946 +0100
+***************
+*** 36,44 ****
+--- 36,48 ----
+      bool ScanEntireDisk;
+  
+      char CurMask[NM];
++ #ifndef __BIONIC__
+      wchar CurMaskW[NM];
++ #endif
+      char OrigCurMask[NM];
++ #ifndef __BIONIC__
+      wchar OrigCurMaskW[NM];
++ #endif
+      bool SearchAllInRoot;
+      size_t SpecPathLength;
+      size_t SpecPathLengthW;
+diff -crB orig/secpassword.cpp src/secpassword.cpp
+*** orig/secpassword.cpp	2013-12-28 19:18:09.109077946 +0100
+--- src/secpassword.cpp	2013-12-28 19:18:09.118077946 +0100
+***************
+*** 54,60 ****
+--- 54,64 ----
+  
+  SecPassword::SecPassword()
+  {
++ #ifndef __BIONIC__
+    Set(L"");
++ #else
++   Set("");
++ #endif
+  }
+  
+  
+***************
+*** 94,100 ****
+--- 98,108 ----
+  // people share the same computer and somebody left WinRAR copy with entered
+  // password. So we decided to obfuscate the password to make it more difficult
+  // to find it in dump.
++ #ifndef __BIONIC__
+  void SecPassword::Process(const wchar *Src,wchar *Dst,size_t MaxSize,bool Encode)
++ #else
++ void SecPassword::Process(const char *Src,char *Dst,size_t MaxSize,bool Encode)
++ #endif
+  {
+  #ifdef _WIN_ALL
+    // Try to utilize the secure Crypt[Un]ProtectMemory if possible.
+***************
+*** 145,155 ****
+  #endif
+  
+    for (size_t I=0;I<MaxSize;I++)
+!     Dst[I]=wchar(Src[I]^(Key+I+75));
+  }
+  
+! 
+  void SecPassword::Get(wchar *Psw,size_t MaxSize)
+  {
+    if (PasswordSet)
+    {
+--- 153,166 ----
+  #endif
+  
+    for (size_t I=0;I<MaxSize;I++)
+!     Dst[I]=char(Src[I]^(Key+I+75));
+  }
+  
+! #ifndef __BIONIC__
+  void SecPassword::Get(wchar *Psw,size_t MaxSize)
++ #else
++ void SecPassword::Get(char *Psw,size_t MaxSize)
++ #endif
+  {
+    if (PasswordSet)
+    {
+***************
+*** 160,167 ****
+      *Psw=0;
+  }
+  
+! 
+  void SecPassword::Set(const wchar *Psw)
+  {
+    if (*Psw==0)
+    {
+--- 171,181 ----
+      *Psw=0;
+  }
+  
+! #ifndef __BIONIC__
+  void SecPassword::Set(const wchar *Psw)
++ #else
++ void SecPassword::Set(const char *Psw)
++ #endif
+  {
+    if (*Psw==0)
+    {
+***************
+*** 178,186 ****
+--- 192,208 ----
+  
+  size_t SecPassword::Length()
+  {
++ #ifndef __BIONIC__
+    wchar Plain[MAXPASSWORD];
++ #else
++   char Plain[MAXPASSWORD];
++ #endif
+    Get(Plain,ASIZE(Plain));
++ #ifndef __BIONIC__
+    size_t Length=wcslen(Plain);
++ #else
++   size_t Length=strlen(Plain);
++ #endif
+    cleandata(Plain,ASIZE(Plain));
+    return Length;
+  }
+***************
+*** 192,201 ****
+--- 214,231 ----
+    // than encryption function will always produce the same result for same
+    // data (salt?) and because we do not clean the rest of password buffer
+    // after trailing zero before encoding password. So we decode first.
++ #ifndef __BIONIC__
+    wchar Plain1[MAXPASSWORD],Plain2[MAXPASSWORD];
++ #else
++   char Plain1[MAXPASSWORD],Plain2[MAXPASSWORD];
++ #endif
+    Get(Plain1,ASIZE(Plain1));
+    psw.Get(Plain2,ASIZE(Plain2));
++ #ifndef __BIONIC__
+    bool Result=wcscmp(Plain1,Plain2)==0;
++ #else
++   bool Result=strcmp(Plain1,Plain2)==0;
++ #endif
+    cleandata(Plain1,ASIZE(Plain1));
+    cleandata(Plain2,ASIZE(Plain2));
+    return Result;
+diff -crB orig/secpassword.hpp src/secpassword.hpp
+*** orig/secpassword.hpp	2013-12-28 19:18:09.109077946 +0100
+--- src/secpassword.hpp	2013-12-28 19:18:09.119077946 +0100
+***************
+*** 6,14 ****
+--- 6,22 ----
+  class SecPassword
+  {
+    private:
++ #ifndef __BIONIC__
+      void Process(const wchar *Src,wchar *Dst,size_t MaxSize,bool Encode);
++ #else
++     void Process(const char *Src,char *Dst,size_t MaxSize,bool Encode);
++ #endif
+  
++ #ifndef __BIONIC__
+      wchar Password[MAXPASSWORD];
++ #else
++     char Password[MAXPASSWORD];
++ #endif
+  
+      // It is important to have this 'bool' value, so if our object is cleaned
+      // with memset as a part of larger structure, it is handled correctly.
+***************
+*** 17,24 ****
+--- 25,37 ----
+      SecPassword();
+      ~SecPassword();
+      void Clean();
++ #ifndef __BIONIC__
+      void Get(wchar *Psw,size_t MaxSize);
+      void Set(const wchar *Psw);
++ #else
++     void Get(char *Psw,size_t MaxSize);
++     void Set(const char *Psw);
++ #endif
+      bool IsSet() {return PasswordSet;}
+      size_t Length();
+      bool operator == (SecPassword &psw);
+diff -crB orig/strfn.cpp src/strfn.cpp
+*** orig/strfn.cpp	2013-12-28 19:18:09.110077946 +0100
+--- src/strfn.cpp	2013-12-28 19:18:09.119077946 +0100
+***************
+*** 13,26 ****
+  
+  
+  
+! 
+  char *IntNameToExt(const char *Name)
+  {
+    static char OutName[NM];
+    IntToExt(Name,OutName);
+    return(OutName);
+  }
+! 
+  
+  void ExtToInt(const char *Src,char *Dest)
+  {
+--- 13,26 ----
+  
+  
+  
+! #ifndef __BIONIC__
+  char *IntNameToExt(const char *Name)
+  {
+    static char OutName[NM];
+    IntToExt(Name,OutName);
+    return(OutName);
+  }
+! #endif
+  
+  void ExtToInt(const char *Src,char *Dest)
+  {
+***************
+*** 101,114 ****
+    return(Str);
+  }
+  
+! 
+  wchar* RemoveLF(wchar *Str)
+  {
+    for (int I=(int)wcslen(Str)-1;I>=0 && (Str[I]=='\r' || Str[I]=='\n');I--)
+      Str[I]=0;
+    return(Str);
+  }
+! 
+  
+  unsigned char loctolower(unsigned char ch)
+  {
+--- 101,114 ----
+    return(Str);
+  }
+  
+! #ifndef __BIONIC__
+  wchar* RemoveLF(wchar *Str)
+  {
+    for (int I=(int)wcslen(Str)-1;I>=0 && (Str[I]=='\r' || Str[I]=='\n');I--)
+      Str[I]=0;
+    return(Str);
+  }
+! #endif
+  
+  unsigned char loctolower(unsigned char ch)
+  {
+***************
+*** 143,149 ****
+    return(toupper(ch));
+  }
+  
+! 
+  // Unicode version of etoupper.
+  wchar etoupperw(wchar ch)
+  {
+--- 143,149 ----
+    return(toupper(ch));
+  }
+  
+! #ifndef __BIONIC__
+  // Unicode version of etoupper.
+  wchar etoupperw(wchar ch)
+  {
+***************
+*** 151,156 ****
+--- 151,157 ----
+      return('I');
+    return(toupperw(ch));
+  }
++ #endif
+  
+  
+  // We do not want to cast every signed char to unsigned when passing to
+***************
+*** 207,213 ****
+    return(true);
+  }
+  
+! 
+  bool LowAscii(const wchar *Str)
+  {
+    for (int I=0;Str[I]!=0;I++)
+--- 208,214 ----
+    return(true);
+  }
+  
+! #ifndef __BIONIC__
+  bool LowAscii(const wchar *Str)
+  {
+    for (int I=0;Str[I]!=0;I++)
+***************
+*** 219,225 ****
+    }
+    return(true);
+  }
+! 
+  
+  
+  
+--- 220,226 ----
+    }
+    return(true);
+  }
+! #endif
+  
+  
+  
+***************
+*** 234,239 ****
+--- 235,241 ----
+  
+  
+  #ifndef SFX_MODULE
++ #ifndef __BIONIC__
+  int wcsicompc(const wchar *Str1,const wchar *Str2)
+  {
+  #if defined(_UNIX)
+***************
+*** 243,248 ****
+--- 245,251 ----
+  #endif
+  }
+  #endif
++ #endif
+  
+  
+  // safe strncpy: copies maxlen-1 max and always returns zero terminated dest
+***************
+*** 258,263 ****
+--- 261,267 ----
+  
+  
+  // Safe wcsncpy: copies maxlen-1 max and always returns zero terminated dest.
++ #ifndef __BIONIC__
+  wchar* wcsncpyz(wchar *dest, const wchar *src, size_t maxlen)
+  {
+    if (maxlen>0)
+***************
+*** 267,272 ****
+--- 271,277 ----
+    }
+    return(dest);
+  }
++ #endif
+  
+  
+  // Safe strncat: resulting dest length cannot exceed maxlen and dest 
+***************
+*** 280,286 ****
+    return dest;
+  }
+  
+! 
+  // Safe wcsncat: resulting dest length cannot exceed maxlen and dest 
+  // is always zero terminated. Note that 'maxlen' parameter defines the entire
+  // dest buffer size and is not compatible with standard wcsncat.
+--- 285,291 ----
+    return dest;
+  }
+  
+! #ifndef __BIONIC__
+  // Safe wcsncat: resulting dest length cannot exceed maxlen and dest 
+  // is always zero terminated. Note that 'maxlen' parameter defines the entire
+  // dest buffer size and is not compatible with standard wcsncat.
+***************
+*** 291,296 ****
+--- 296,302 ----
+      wcsncat(dest, src, maxlen - Length - 1);
+    return dest;
+  }
++ #endif
+  
+  
+  void itoa(int64 n,char *Str)
+***************
+*** 322,328 ****
+    return(n);
+  }
+  
+! 
+  void itoa(int64 n,wchar *Str)
+  {
+    wchar NumStr[50];
+--- 328,334 ----
+    return(n);
+  }
+  
+! #ifndef __BIONIC__
+  void itoa(int64 n,wchar *Str)
+  {
+    wchar NumStr[50];
+***************
+*** 338,345 ****
+      Str[I]=NumStr[Pos-I-1];
+    Str[Pos]=0;
+  }
+  
+! 
+  int64 atoil(const wchar *Str)
+  {
+    int64 n=0;
+--- 344,352 ----
+      Str[I]=NumStr[Pos-I-1];
+    Str[Pos]=0;
+  }
++ #endif
+  
+! #ifndef __BIONIC__
+  int64 atoil(const wchar *Str)
+  {
+    int64 n=0;
+***************
+*** 350,357 ****
+    }
+    return(n);
+  }
+  
+! 
+  const wchar* GetWide(const char *Src)
+  {
+    const size_t MaxLength=NM;
+--- 357,365 ----
+    }
+    return(n);
+  }
++ #endif
+  
+! #ifndef __BIONIC__
+  const wchar* GetWide(const char *Src)
+  {
+    const size_t MaxLength=NM;
+***************
+*** 364,378 ****
+    Str[MaxLength-1]=0;
+    return(Str);
+  }
+  
+! 
+  const wchar* GetWide(const char *Src,const wchar *SrcW)
+  {
+    if (SrcW!=NULL && *SrcW!=0)
+      return SrcW;
+    return GetWide(Src);
+  }
+! 
+  
+  #ifdef _WIN_ALL
+  // Parse string containing parameters separated with spaces.
+--- 372,387 ----
+    Str[MaxLength-1]=0;
+    return(Str);
+  }
++ #endif
+  
+! #ifndef __BIONIC__
+  const wchar* GetWide(const char *Src,const wchar *SrcW)
+  {
+    if (SrcW!=NULL && *SrcW!=0)
+      return SrcW;
+    return GetWide(Src);
+  }
+! #endif
+  
+  #ifdef _WIN_ALL
+  // Parse string containing parameters separated with spaces.
+diff -crB orig/strfn.hpp src/strfn.hpp
+*** orig/strfn.hpp	2013-12-28 19:18:09.110077946 +0100
+--- src/strfn.hpp	2013-12-28 19:18:09.119077946 +0100
+***************
+*** 2,8 ****
+--- 2,10 ----
+  #define _RAR_STRFN_
+  
+  const char* NullToEmpty(const char *Str);
++ #ifndef __BIONIC__
+  const wchar* NullToEmpty(const wchar *Str);
++ #endif
+  char* IntNameToExt(const char *Name);
+  void ExtToInt(const char *Src,char *Dest);
+  void IntToExt(const char *Src,char *Dest);
+***************
+*** 12,28 ****
+--- 14,38 ----
+  int strnicomp(const char *Str1,const char *Str2,size_t N);
+  char* RemoveEOL(char *Str);
+  char* RemoveLF(char *Str);
++ #ifndef __BIONIC__
+  wchar* RemoveLF(wchar *Str);
++ #endif
+  unsigned char loctolower(unsigned char ch);
+  unsigned char loctoupper(unsigned char ch);
+  
+  char* strncpyz(char *dest, const char *src, size_t maxlen);
++ #ifndef __BIONIC__
+  wchar* wcsncpyz(wchar *dest, const wchar *src, size_t maxlen);
++ #endif
+  char* strncatz(char* dest, const char* src, size_t maxlen);
++ #ifndef __BIONIC__
+  wchar* wcsncatz(wchar* dest, const wchar* src, size_t maxlen);
++ #endif
+  
+  unsigned char etoupper(unsigned char ch);
++ #ifndef __BIONIC__
+  wchar etoupperw(wchar ch);
++ #endif
+  
+  bool IsDigit(int ch);
+  bool IsSpace(int ch);
+***************
+*** 34,53 ****
+--- 44,69 ----
+  #endif
+  
+  bool LowAscii(const char *Str);
++ #ifndef __BIONIC__
+  bool LowAscii(const wchar *Str);
++ #endif
+  
+  
+  int stricompc(const char *Str1,const char *Str2);
+  #ifndef SFX_MODULE
++ #ifndef __BIONIC__
+  int wcsicompc(const wchar *Str1,const wchar *Str2);
+  #endif
++ #endif
+  
+  void itoa(int64 n,char *Str);
+  int64 atoil(const char *Str);
++ #ifndef __BIONIC__
+  void itoa(int64 n,wchar *Str);
+  int64 atoil(const wchar *Str);
+  const wchar* GetWide(const char *Src);
+  const wchar* GetWide(const char *Src,const wchar *SrcW);
+  const wchar* GetCmdParam(const wchar *CmdLine,wchar *Param,size_t MaxSize);
++ #endif
+  
+  #endif
+diff -crB orig/strlist.cpp src/strlist.cpp
+*** orig/strlist.cpp	2013-12-28 19:18:09.110077946 +0100
+--- src/strlist.cpp	2013-12-28 19:18:09.119077946 +0100
+***************
+*** 10,21 ****
+  {
+    Rewind();
+    StringData.Reset();
+    StringDataW.Reset();
+    StringsCount=0;
+    SavePosNumber=0;
+  }
+  
+! 
+  void StringList::AddString(const char *Str)
+  {
+    AddString(Str,NULL);
+--- 10,23 ----
+  {
+    Rewind();
+    StringData.Reset();
++ #ifndef __BIONIC__
+    StringDataW.Reset();
++ #endif
+    StringsCount=0;
+    SavePosNumber=0;
+  }
+  
+! #ifndef __BIONIC__
+  void StringList::AddString(const char *Str)
+  {
+    AddString(Str,NULL);
+***************
+*** 26,54 ****
+  {
+    AddString(NULL,Str);
+  }
+  
+  
+! 
+! 
+  void StringList::AddString(const char *Str,const wchar *StrW)
+  {
+    if (Str==NULL)
+      Str="";
+    if (StrW==NULL)
+      StrW=L"";
+  
+    size_t PrevSize=StringData.Size();
+    StringData.Add(strlen(Str)+1);
+    strcpy(&StringData[PrevSize],Str);
+  
+    size_t PrevSizeW=StringDataW.Size();
+    StringDataW.Add(wcslen(StrW)+1);
+    wcscpy(&StringDataW[PrevSizeW],StrW);
+  
+    StringsCount++;
+  }
+  
+! 
+  bool StringList::GetString(char *Str,size_t MaxLength)
+  {
+    return(GetString(Str,NULL,MaxLength));
+--- 28,63 ----
+  {
+    AddString(NULL,Str);
+  }
++ #endif
+  
+  
+! #ifndef __BIONIC__
+  void StringList::AddString(const char *Str,const wchar *StrW)
++ #else
++ void StringList::AddString(const char *Str)
++ #endif
+  {
+    if (Str==NULL)
+      Str="";
++ #ifndef __BIONIC__
+    if (StrW==NULL)
+      StrW=L"";
++ #endif
+  
+    size_t PrevSize=StringData.Size();
+    StringData.Add(strlen(Str)+1);
+    strcpy(&StringData[PrevSize],Str);
+  
++ #ifndef __BIONIC__
+    size_t PrevSizeW=StringDataW.Size();
+    StringDataW.Add(wcslen(StrW)+1);
+    wcscpy(&StringDataW[PrevSizeW],StrW);
++ #endif
+  
+    StringsCount++;
+  }
+  
+! #ifndef __BIONIC__
+  bool StringList::GetString(char *Str,size_t MaxLength)
+  {
+    return(GetString(Str,NULL,MaxLength));
+***************
+*** 59,88 ****
+  {
+    return(GetString(NULL,Str,MaxLength));
+  }
+  
+! 
+  bool StringList::GetString(char *Str,wchar *StrW,size_t MaxLength)
+  {
+    char *StrPtr;
+    wchar *StrPtrW;
+    if (!GetString(&StrPtr,&StrPtrW))
+      return(false);
+    if (Str!=NULL)
+      strncpy(Str,StrPtr,MaxLength);
+    if (StrW!=NULL)
+      wcsncpy(StrW,StrPtrW,MaxLength);
+    return(true);
+  }
+  
+  
+  #ifndef SFX_MODULE
+  bool StringList::GetString(char *Str,wchar *StrW,size_t MaxLength,int StringNum)
+  {
+    SavePosition();
+    Rewind();
+    bool RetCode=true;
+    while (StringNum-- >=0)
+      if (!GetString(Str,StrW,MaxLength))
+      {
+        RetCode=false;
+        break;
+--- 67,115 ----
+  {
+    return(GetString(NULL,Str,MaxLength));
+  }
++ #endif
+  
+! #ifndef __BIONIC__
+  bool StringList::GetString(char *Str,wchar *StrW,size_t MaxLength)
++ #else
++ bool StringList::GetString(char *Str,size_t MaxLength)
++ #endif
+  {
+    char *StrPtr;
++ #ifndef __BIONIC__
+    wchar *StrPtrW;
+    if (!GetString(&StrPtr,&StrPtrW))
++ #else
++   if (!GetString(&StrPtr))
++ #endif
+      return(false);
++ 
+    if (Str!=NULL)
+      strncpy(Str,StrPtr,MaxLength);
++ #ifndef __BIONIC__
+    if (StrW!=NULL)
+      wcsncpy(StrW,StrPtrW,MaxLength);
++ #endif
+    return(true);
+  }
+  
+  
+  #ifndef SFX_MODULE
++ #ifndef __BIONIC__
+  bool StringList::GetString(char *Str,wchar *StrW,size_t MaxLength,int StringNum)
++ #else
++ bool StringList::GetString(char *Str,size_t MaxLength,int StringNum)
++ #endif
+  {
+    SavePosition();
+    Rewind();
+    bool RetCode=true;
+    while (StringNum-- >=0)
++ #ifndef __BIONIC__
+      if (!GetString(Str,StrW,MaxLength))
++ #else
++     if (!GetString(Str,MaxLength))
++ #endif
+      {
+        RetCode=false;
+        break;
+***************
+*** 96,125 ****
+  char* StringList::GetString()
+  {
+    char *Str;
+    GetString(&Str,NULL);
+    return(Str);
+  }
+  
+! 
+  wchar* StringList::GetStringW()
+  {
+    wchar *StrW;
+    GetString(NULL,&StrW);
+    return(StrW);
+  }
+  
+! 
+  bool StringList::GetString(char **Str,wchar **StrW)
+  {
+    // First check would be enough, because both buffers grow synchronously,
+    // but we check both for extra fail proof.
+    if (CurPos>=StringData.Size() || CurPosW>=StringDataW.Size())
+    {
+      // No more strings left unprocessed.
+      if (Str!=NULL)
+        *Str=NULL;
+      if (StrW!=NULL)
+        *StrW=NULL;
+      return(false);
+    }
+  
+--- 123,166 ----
+  char* StringList::GetString()
+  {
+    char *Str;
++ #ifndef __BIONIC__
+    GetString(&Str,NULL);
++ #else
++   GetString(&Str);
++ #endif
+    return(Str);
+  }
+  
+! #ifndef __BIONIC__
+  wchar* StringList::GetStringW()
+  {
+    wchar *StrW;
+    GetString(NULL,&StrW);
+    return(StrW);
+  }
++ #endif
+  
+! #ifndef __BIONIC__
+  bool StringList::GetString(char **Str,wchar **StrW)
++ #else
++ bool StringList::GetString(char **Str)
++ #endif
+  {
+    // First check would be enough, because both buffers grow synchronously,
+    // but we check both for extra fail proof.
++ #ifndef __BIONIC__
+    if (CurPos>=StringData.Size() || CurPosW>=StringDataW.Size())
++ #else
++   if (CurPos>=StringData.Size())
++ #endif
+    {
+      // No more strings left unprocessed.
+      if (Str!=NULL)
+        *Str=NULL;
++ #ifndef __BIONIC__
+      if (StrW!=NULL)
+        *StrW=NULL;
++ #endif
+      return(false);
+    }
+  
+***************
+*** 130,139 ****
+--- 171,182 ----
+    if (Str!=NULL)
+      *Str=CurStr;
+  
++ #ifndef __BIONIC__
+    wchar *CurStrW=&StringDataW[CurPosW];
+    CurPosW+=wcslen(CurStrW)+1;
+    if (StrW!=NULL)
+      *StrW=CurStrW;
++ #endif
+  
+    return(true);
+  }
+***************
+*** 142,174 ****
+--- 185,233 ----
+  void StringList::Rewind()
+  {
+    CurPos=0;
++ #ifndef __BIONIC__
+    CurPosW=0;
++ #endif
+  }
+  
+  
+  // Return the total size of usual and Unicode characters stored in the list.
+  size_t StringList::GetCharCount()
+  {
++ #ifndef __BIONIC__
+    return(StringData.Size()+StringDataW.Size());
++ #else
++   return(StringData.Size());
++ #endif
+  }
+  
+  
+  #ifndef SFX_MODULE
++ #ifndef __BIONIC__
+  bool StringList::Search(char *Str,wchar *StrW,bool CaseSensitive)
++ #else
++ bool StringList::Search(char *Str,bool CaseSensitive)
++ #endif
+  {
+    SavePosition();
+    Rewind();
+    bool Found=false;
+    char *CurStr;
++ #ifndef __BIONIC__
+    wchar *CurStrW;
+    while (GetString(&CurStr,&CurStrW))
++ #else
++   while (GetString(&CurStr))
++ #endif
+    {
+      if (Str!=NULL && CurStr!=NULL)
+        if ((CaseSensitive ? strcmp(Str,CurStr):stricomp(Str,CurStr))!=0)
+          continue;
++ #ifndef __BIONIC__
+      if (StrW!=NULL && CurStrW!=NULL)
+        if ((CaseSensitive ? wcscmp(StrW,CurStrW):wcsicomp(StrW,CurStrW))!=0)
+          continue;
++ #endif
+      Found=true;
+      break;
+    }
+***************
+*** 184,190 ****
+--- 243,251 ----
+    if (SavePosNumber<ASIZE(SaveCurPos))
+    {
+      SaveCurPos[SavePosNumber]=CurPos;
++ #ifndef __BIONIC__
+      SaveCurPosW[SavePosNumber]=CurPosW;
++ #endif
+      SavePosNumber++;
+    }
+  }
+***************
+*** 198,204 ****
+--- 259,267 ----
+    {
+      SavePosNumber--;
+      CurPos=SaveCurPos[SavePosNumber];
++ #ifndef __BIONIC__
+      CurPosW=SaveCurPosW[SavePosNumber];
++ #endif
+    }
+  }
+  #endif
+diff -crB orig/strlist.hpp src/strlist.hpp
+*** orig/strlist.hpp	2013-12-28 19:18:09.110077946 +0100
+--- src/strlist.hpp	2013-12-28 19:18:09.119077946 +0100
+***************
+*** 7,35 ****
+--- 7,55 ----
+      Array<char> StringData;
+      size_t CurPos;
+  
++ #ifndef __BIONIC__
+      Array<wchar> StringDataW;
+      size_t CurPosW;
++ #endif
+  
+      uint StringsCount;
+  
++ #ifndef __BIONIC__
+      size_t SaveCurPos[16],SaveCurPosW[16],SavePosNumber;
++ #else
++     size_t SaveCurPos[16],SavePosNumber;
++ #endif
+    public:
+      StringList();
+      void Reset();
+      void AddString(const char *Str);
++ #ifndef __BIONIC__
+      void AddString(const wchar *Str);
+      void AddString(const char *Str,const wchar *StrW);
++ #endif
+      bool GetString(char *Str,size_t MaxLength);
++ #ifndef __BIONIC__
+      bool GetString(wchar *Str,size_t MaxLength);
+      bool GetString(char *Str,wchar *StrW,size_t MaxLength);
+      bool GetString(char *Str,wchar *StrW,size_t MaxLength,int StringNum);
++ #else
++     bool GetString(char *Str,size_t MaxLength,int StringNum);
++ #endif
+      char* GetString();
++ #ifndef __BIONIC__
+      wchar* GetStringW();
+      bool GetString(char **Str,wchar **StrW);
++ #else
++     bool GetString(char **Str);
++ #endif
+      void Rewind();
+      uint ItemsCount() {return(StringsCount);};
+      size_t GetCharCount();
++ #ifndef __BIONIC__
+      bool Search(char *Str,wchar *StrW,bool CaseSensitive);
++ #else
++     bool Search(char *Str,bool CaseSensitive);
++ #endif
+      void SavePosition();
+      void RestorePosition();
+  };
+diff -crB orig/ulinks.cpp src/ulinks.cpp
+*** orig/ulinks.cpp	2013-12-28 19:18:09.110077946 +0100
+--- src/ulinks.cpp	2013-12-28 19:18:09.119077946 +0100
+***************
+*** 13,19 ****
+--- 13,23 ----
+      LinkTarget[DataSize]=0;
+      if (Create)
+      {
++ #ifndef __BIONIC__
+        CreatePath(LinkName,NULL,true);
++ #else
++       CreatePath(LinkName,true);
++ #endif
+        if (symlink(LinkTarget,LinkName)==-1) // Error.
+          if (errno==EEXIST)
+            Log(Arc.FileName,St(MSymLinkExists),LinkName);
+diff -crB orig/uowners.cpp src/uowners.cpp
+*** orig/uowners.cpp	2013-12-28 19:18:09.111077946 +0100
+--- src/uowners.cpp	2013-12-28 19:18:09.120077946 +0100
+***************
+*** 29,35 ****
+--- 29,39 ----
+      ErrHandler.SetErrorCode(RARX_CRC);
+      return;
+    }
++ #ifndef __BIONIC__
+    uint Attr=GetFileAttr(FileName,NULL);
++ #else
++   uint Attr=GetFileAttr(FileName);
++ #endif
+    gid_t GroupID=gr->gr_gid;
+  #if defined(SAVE_LINKS) && !defined(_APPLE)
+    if (lchown(FileName,OwnerID,GroupID)!=0)
+***************
+*** 40,46 ****
+--- 44,54 ----
+      Log(Arc.FileName,St(MSetOwnersError),FileName);
+      ErrHandler.SetErrorCode(RARX_CREATE);
+    }
++ #ifndef __BIONIC__
+    SetFileAttr(FileName,NULL,Attr);
++ #else
++   SetFileAttr(FileName,Attr);
++ #endif
+  }
+  
+  
+***************
+*** 69,75 ****
+--- 77,87 ----
+      ErrHandler.SetErrorCode(RARX_CRC);
+      return;
+    }
++ #ifndef __BIONIC__
+    uint Attr=GetFileAttr(FileName,NULL);
++ #else
++   uint Attr=GetFileAttr(FileName);
++ #endif
+    gid_t GroupID=gr->gr_gid;
+  #if defined(SAVE_LINKS) && !defined(_APPLE)
+    if (lchown(FileName,OwnerID,GroupID)!=0)
+***************
+*** 80,84 ****
+--- 92,100 ----
+      Log(Arc.FileName,St(MSetOwnersError),FileName);
+      ErrHandler.SetErrorCode(RARX_CREATE);
+    }
++ #ifndef __BIONIC__
+    SetFileAttr(FileName,NULL,Attr);
++ #else
++   SetFileAttr(FileName,Attr);
++ #endif
+  }
+diff -crB orig/volume.cpp src/volume.cpp
+*** orig/volume.cpp	2013-12-28 19:18:09.111077946 +0100
+--- src/volume.cpp	2013-12-28 19:18:09.120077946 +0100
+***************
+*** 33,42 ****
+--- 33,48 ----
+    Arc.Close();
+  
+    char NextName[NM];
++ #ifndef __BIONIC__
+    wchar NextNameW[NM];
++ #endif
+    strcpy(NextName,Arc.FileName);
++ #ifndef __BIONIC__
+    wcscpy(NextNameW,Arc.FileNameW);
+    NextVolumeName(NextName,NextNameW,ASIZE(NextName),(Arc.NewMhd.Flags & MHD_NEWNUMBERING)==0 || Arc.OldFormat);
++ #else
++   NextVolumeName(NextName,ASIZE(NextName),(Arc.NewMhd.Flags & MHD_NEWNUMBERING)==0 || Arc.OldFormat);
++ #endif
+  
+  #if !defined(SFX_MODULE) && !defined(RARDLL)
+    bool RecoveryDone=false;
+***************
+*** 47,58 ****
+--- 53,72 ----
+    // In -vp mode we force the pause before next volume even if it is present
+    // and even if we are on the hard disk. It is important when user does not
+    // want to process partially downloaded volumes preliminary.
++ #ifndef __BIONIC__
+    if (Cmd->VolumePause && !AskNextVol(NextName,NextNameW))
++ #else
++   if (Cmd->VolumePause && !AskNextVol(NextName))
++ #endif
+      FailedOpen=true;
+  #endif
+  
+    if (!FailedOpen)
++ #ifndef __BIONIC__
+      while (!Arc.Open(NextName,NextNameW,0))
++ #else
++     while (!Arc.Open(NextName,0))
++ #endif
+      {
+        // We need to open a new volume which size was not calculated
+        // in total size before, so we cannot calculate the total progress
+***************
+*** 66,80 ****
+--- 80,106 ----
+          // Checking for new style volumes renamed by user to old style
+          // name format. Some users did it for unknown reason.
+          char AltNextName[NM];
++ #ifndef __BIONIC__
+          wchar AltNextNameW[NM];
++ #endif
+          strcpy(AltNextName,Arc.FileName);
++ #ifndef __BIONIC__
+          wcscpy(AltNextNameW,Arc.FileNameW);
+          NextVolumeName(AltNextName,AltNextNameW,ASIZE(AltNextName),true);
++ #else
++         NextVolumeName(AltNextName,ASIZE(AltNextName),true);
++ #endif
+          OldSchemeTested=true;
++ #ifndef __BIONIC__
+          if (Arc.Open(AltNextName,AltNextNameW,0))
++ #else
++         if (Arc.Open(AltNextName,0))
++ #endif
+          {
+            strcpy(NextName,AltNextName);
++ #ifndef __BIONIC__
+            wcscpy(NextNameW,AltNextNameW);
++ #endif
+            break;
+          }
+        }
+***************
+*** 144,150 ****
+--- 170,180 ----
+        if (!RecoveryDone)
+        {
+          RecVolumes RecVol;
++ #ifndef __BIONIC__
+          RecVol.Restore(Cmd,Arc.FileName,Arc.FileNameW,true);
++ #else
++         RecVol.Restore(Cmd,Arc.FileName,true);
++ #endif
+          RecoveryDone=true;
+          continue;
+        }
+***************
+*** 158,164 ****
+--- 188,198 ----
+        }
+  #endif
+  #ifndef SILENT
++ #ifndef __BIONIC__
+        if (Cmd->AllYes || !AskNextVol(NextName,NextNameW))
++ #else
++       if (Cmd->AllYes || !AskNextVol(NextName))
++ #endif
+  #endif
+        {
+          FailedOpen=true;
+***************
+*** 173,179 ****
+--- 207,217 ----
+  #if !defined(SILENT) && !defined(_WIN_CE)
+        Log(Arc.FileName,St(MAbsNextVol),NextName);
+  #endif
++ #ifndef __BIONIC__
+      Arc.Open(Arc.FileName,Arc.FileNameW,0);
++ #else
++     Arc.Open(Arc.FileName,0);
++ #endif
+      Arc.Seek(PosBeforeClose,SEEK_SET);
+      return(false);
+    }
+***************
+*** 220,225 ****
+--- 258,264 ----
+      char OutName[NM];
+      IntToExt(Arc.NewLhd.FileName,OutName);
+  #ifdef UNICODE_SUPPORTED
++ #ifndef __BIONIC__
+      bool WideName=(Arc.NewLhd.Flags & LHD_UNICODE) && UnicodeEnabled();
+      if (WideName)
+      {
+***************
+*** 230,235 ****
+--- 269,275 ----
+          strcpy(OutName,Name);
+      }
+  #endif
++ #endif
+      mprintf(St(MExtrPoints),OutName);
+      if (!Cmd->DisablePercentage)
+        mprintf("     ");
+***************
+*** 270,276 ****
+--- 310,320 ----
+  
+  
+  #ifndef SILENT
++ #ifndef __BIONIC__
+  bool AskNextVol(char *ArcName,wchar *ArcNameW)
++ #else
++ bool AskNextVol(char *ArcName)
++ #endif
+  {
+    eprintf(St(MAskNextVol),ArcName);
+    if (Ask(St(MContinueQuit))==2)
+diff -crB orig/volume.hpp src/volume.hpp
+*** orig/volume.hpp	2013-12-28 19:18:09.111077946 +0100
+--- src/volume.hpp	2013-12-28 19:18:09.120077946 +0100
+***************
+*** 6,11 ****
+--- 6,15 ----
+  bool MergeArchive(Archive &Arc,ComprDataIO *DataIO,bool ShowFileName,
+                    char Command);
+  void SetVolWrite(Archive &Dest,int64 VolSize);
++ #ifndef __BIONIC__
+  bool AskNextVol(char *ArcName,wchar *ArcNameW);
++ #else
++ bool AskNextVol(char *ArcName);
++ #endif
+  
+  #endif

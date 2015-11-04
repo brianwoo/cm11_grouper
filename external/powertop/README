@@ -1,0 +1,82 @@
+
+
+
+Building & Installing PowerTOP
+------------------------------
+
+just type
+
+	make
+	make install
+
+
+
+
+Build dependencies
+------------------
+
+PowerTOP uses C++, and expects g++ and libstdc++ to be functional
+
+in addition to that, it needs the following components:
+
+pciutils-devel
+ncurses-devel
+zlib-devel
+libnl-devel
+
+and a functional glibc/pthreads development environment
+
+
+
+Outputting a report
+-------------------
+When invoking PowerTOP without arguments, it goes into interactive mode.
+However, for reporting bugs etc there is a special reporting mode:
+
+powertop --html
+
+which will create a "powertop.html" file which is static and can be sent to
+others to help diagnose power issues.
+
+
+
+Calibrating & Power Numbers
+---------------------------
+PowerTOP will, when running on battery, track your power consumption as well
+as your activity on the system. Once there are sufficient such measurements,
+PowerTOP can start to report power estimates for various activities.
+You can help get this estimation more accurate by running a calibration
+cycle:
+
+powertop --calibrate
+
+at least once; this will cycle through various display brightness levels
+(including "off") as well as USB device activities and some other workloads.
+
+
+
+
+
+Code from other open source projects
+------------------------------------
+PowerTOP contains some code from other open source projects; we'd like to
+thank the authors of those projects for their work. 
+Specifically PowerTOP contains code from
+
+nl80211 userspace tool - Copyright 2007, 2008	Johannes Berg <johannes@sipsolutions.net>
+
+
+
+
+Extech Power Analyzer / Datalogger support
+------------------------------------------
+I use, and our analysis teams use, the Extech Power Analyzer/Datalogger
+(model number 380803) quite a lot, and PowerTOP supports using this
+device over the serial cable. Just pass the device node on the command line
+like this
+
+powertop --extech=/dev/ttyUSB0
+
+(where ttyUSB0 is the devicenode of the serial-to-usb adapter on my system)
+
+

@@ -1,0 +1,10 @@
+.DS_Store
+._*
+Debug/
+Release/
+GeneratedFiles/
+autom4te.cache/
+*.vcxproj.user
+*.suo
+*.sdf
+*.opensdf

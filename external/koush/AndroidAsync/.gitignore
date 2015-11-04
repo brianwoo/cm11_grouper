@@ -1,0 +1,12 @@
+bin
+.settings
+local.properties
+gen
+.gradle
+build
+.idea/
+.DS_Store
+
+okhttp
+okio
+libs
