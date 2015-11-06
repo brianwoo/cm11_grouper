@@ -16,6 +16,7 @@
 
 //#define LOG_NDEBUG 0
 #define LOG_TAG "MetaData"
+#include <inttypes.h>
 #include <utils/Log.h>
 
 #include <stdlib.h>
