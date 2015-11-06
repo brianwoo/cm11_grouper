@@ -221,6 +221,16 @@ bool MetaData::findData(uint32_t key, uint32_t *type,
     return true;
 }
 
+bool MetaData::hasData(uint32_t key) const {
+    ssize_t i = mItems.indexOfKey(key);
+
+    if (i < 0) {
+        return false;
+    }
+
+    return true;
+}
+
 MetaData::typed_data::typed_data()
     : mType(0),
       mSize(0) {
@@ -233,8 +243,11 @@ MetaData::typed_data::~typed_data() {
 MetaData::typed_data::typed_data(const typed_data &from)
     : mType(from.mType),
       mSize(0) {
-    allocateStorage(from.mSize);
-    memcpy(storage(), from.storage(), mSize);
+
+    void *dst = allocateStorage(from.mSize);
+    if (dst) {
+        memcpy(dst, from.storage(), mSize);
+    }
 }
 
 MetaData::typed_data &MetaData::typed_data::operator=(
@@ -242,8 +255,10 @@ MetaData::typed_data &MetaData::typed_data::operator=(
     if (this != &from) {
         clear();
         mType = from.mType;
-        allocateStorage(from.mSize);
-        memcpy(storage(), from.storage(), mSize);
+        void *dst = allocateStorage(from.mSize);
+        if (dst) {
+            memcpy(dst, from.storage(), mSize);
+        }
     }
 
     return *this;
@@ -260,8 +275,11 @@ void MetaData::typed_data::setData(
     clear();
 
     mType = type;
-    allocateStorage(size);
-    memcpy(storage(), data, size);
+
+    void *dst = allocateStorage(size);
+    if (dst) {
+        memcpy(dst, data, size);
+    }
 }
 
 void MetaData::typed_data::getData(
@@ -271,14 +289,19 @@ void MetaData::typed_data::getData(
     *data = storage();
 }
 
-void MetaData::typed_data::allocateStorage(size_t size) {
+void *MetaData::typed_data::allocateStorage(size_t size) {
     mSize = size;
 
     if (usesReservoir()) {
-        return;
+        return &u.reservoir;
     }
 
     u.ext_data = malloc(mSize);
+    if (u.ext_data == NULL) {
+        ALOGE("Couldn't allocate %zu bytes for item", size);
+        mSize = 0;
+    }
+    return u.ext_data;
 }
 
 void MetaData::typed_data::freeStorage() {
