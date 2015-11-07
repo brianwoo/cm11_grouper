@@ -372,98 +372,134 @@ status_t TextDescriptions::extract3GPPLocalDescriptions(
 
 // To extract box 'tx3g' defined in 3GPP TS 26.245, and store it in a Parcel
 status_t TextDescriptions::extract3GPPGlobalDescriptions(
-        const uint8_t *data, ssize_t size, Parcel *parcel, int depth) {
+        const uint8_t *data, ssize_t size, Parcel *parcel) {
 
-    ssize_t chunkSize = U32_AT(data);
-    uint32_t chunkType = U32_AT(data + 4);
-    const uint8_t *tmpData = data;
-    tmpData += 8;
+    parcel->writeInt32(KEY_GLOBAL_SETTING);
 
-    if (size < chunkSize) {
-        return OK;
-    }
+    while (size >= 8) {
+        ssize_t chunkSize = U32_AT(data);
+        uint32_t chunkType = U32_AT(data + 4);
+        const uint8_t *tmpData = data;
+        tmpData += 8;
+        size_t remaining = size - 8;
 
-    if (depth == 0) {
-        parcel->writeInt32(KEY_GLOBAL_SETTING);
-    }
-    switch(chunkType) {
-        case FOURCC('t', 'x', '3', 'g'):
-        {
-            tmpData += 8; // skip the first 8 bytes
-            parcel->writeInt32(KEY_DISPLAY_FLAGS);
-            parcel->writeInt32(U32_AT(tmpData));
+        if (size < chunkSize) {
+            return OK;
+        }
+        switch(chunkType) {
+            case FOURCC('t', 'x', '3', 'g'):
+            {
+                if (remaining < 18) { // 8 just below, and another 10 a little further down
+                    return OK;
+                }
+                tmpData += 8; // skip the first 8 bytes
+                remaining -=8;
+                parcel->writeInt32(KEY_DISPLAY_FLAGS);
+                parcel->writeInt32(U32_AT(tmpData));
 
-            parcel->writeInt32(KEY_STRUCT_JUSTIFICATION);
-            parcel->writeInt32(tmpData[4]);
-            parcel->writeInt32(tmpData[5]);
+                parcel->writeInt32(KEY_STRUCT_JUSTIFICATION);
+                parcel->writeInt32(tmpData[4]);
+                parcel->writeInt32(tmpData[5]);
 
-            parcel->writeInt32(KEY_BACKGROUND_COLOR_RGBA);
-            uint32_t rgba = *(tmpData + 6) << 24 | *(tmpData + 7) << 16
-                | *(tmpData + 8) << 8 | *(tmpData + 9);
-            parcel->writeInt32(rgba);
+                parcel->writeInt32(KEY_BACKGROUND_COLOR_RGBA);
+                uint32_t rgba = *(tmpData + 6) << 24 | *(tmpData + 7) << 16
+                    | *(tmpData + 8) << 8 | *(tmpData + 9);
+                parcel->writeInt32(rgba);
 
-            tmpData += 10;
-            parcel->writeInt32(KEY_STRUCT_TEXT_POS);
-            parcel->writeInt32(U16_AT(tmpData));
-            parcel->writeInt32(U16_AT(tmpData + 2));
-            parcel->writeInt32(U16_AT(tmpData + 4));
-            parcel->writeInt32(U16_AT(tmpData + 6));
+                tmpData += 10;
+                remaining -= 10;
 
-            tmpData += 8;
-            parcel->writeInt32(KEY_STRUCT_STYLE_LIST);
-            parcel->writeInt32(KEY_START_CHAR);
-            parcel->writeInt32(U16_AT(tmpData));
+                if (remaining < 8) {
+                    return OK;
+                }
+                parcel->writeInt32(KEY_STRUCT_TEXT_POS);
+                parcel->writeInt32(U16_AT(tmpData));
+                parcel->writeInt32(U16_AT(tmpData + 2));
+                parcel->writeInt32(U16_AT(tmpData + 4));
+                parcel->writeInt32(U16_AT(tmpData + 6));
 
-            parcel->writeInt32(KEY_END_CHAR);
-            parcel->writeInt32(U16_AT(tmpData + 2));
+                tmpData += 8;
+                remaining -= 8;
 
-            parcel->writeInt32(KEY_FONT_ID);
-            parcel->writeInt32(U16_AT(tmpData + 4));
-
-            parcel->writeInt32(KEY_STYLE_FLAGS);
-            parcel->writeInt32(*(tmpData + 6));
-
-            parcel->writeInt32(KEY_FONT_SIZE);
-            parcel->writeInt32(*(tmpData + 7));
-
-            parcel->writeInt32(KEY_TEXT_COLOR_RGBA);
-            rgba = *(tmpData + 8) << 24 | *(tmpData + 9) << 16
-                | *(tmpData + 10) << 8 | *(tmpData + 11);
-            parcel->writeInt32(rgba);
-
-            tmpData += 12;
-            parcel->writeInt32(KEY_STRUCT_FONT_LIST);
-            uint16_t count = U16_AT(tmpData);
-            parcel->writeInt32(count);
-
-            tmpData += 2;
-            for (int i = 0; i < count; i++) {
-                // font ID
+                if (remaining < 12) {
+                    return OK;
+                }
+                parcel->writeInt32(KEY_STRUCT_STYLE_LIST);
+                parcel->writeInt32(KEY_START_CHAR);
                 parcel->writeInt32(U16_AT(tmpData));
 
-                // font name length
-                parcel->writeInt32(*(tmpData + 2));
+                parcel->writeInt32(KEY_END_CHAR);
+                parcel->writeInt32(U16_AT(tmpData + 2));
 
-                int len = *(tmpData + 2);
+                parcel->writeInt32(KEY_FONT_ID);
+                parcel->writeInt32(U16_AT(tmpData + 4));
 
-                parcel->write(tmpData + 3, len);
-                tmpData += 3 + len;
+                parcel->writeInt32(KEY_STYLE_FLAGS);
+                parcel->writeInt32(*(tmpData + 6));
+
+                parcel->writeInt32(KEY_FONT_SIZE);
+                parcel->writeInt32(*(tmpData + 7));
+
+                parcel->writeInt32(KEY_TEXT_COLOR_RGBA);
+                rgba = *(tmpData + 8) << 24 | *(tmpData + 9) << 16
+                    | *(tmpData + 10) << 8 | *(tmpData + 11);
+                parcel->writeInt32(rgba);
+
+                tmpData += 12;
+                remaining -= 12;
+
+                if (remaining < 2) {
+                    return OK;
+                }
+
+                size_t dataPos = parcel->dataPosition();
+
+                parcel->writeInt32(KEY_STRUCT_FONT_LIST);
+                uint16_t count = U16_AT(tmpData);
+                parcel->writeInt32(count);
+
+                tmpData += 2;
+                remaining -= 2;
+
+                for (int i = 0; i < count; i++) {
+                    if (remaining < 3) {
+                        // roll back
+                        parcel->setDataPosition(dataPos);
+                        return OK;
+                    }
+                    // font ID
+                    parcel->writeInt32(U16_AT(tmpData));
+
+                    // font name length
+                    parcel->writeInt32(*(tmpData + 2));
+
+                    size_t len = *(tmpData + 2);
+
+                    tmpData += 3;
+                    remaining -= 3;
+
+                    if (remaining < len) {
+                        // roll back
+                        parcel->setDataPosition(dataPos);
+                        return OK;
+                    }
+
+                    parcel->write(tmpData, len);
+                    tmpData += len;
+                    remaining -= len;
+                }
+
+                // there is a "DisparityBox" after this according to the spec, but we ignore it
+                break;
             }
-
-            break;
+            default:
+            {
+                break;
+            }
         }
-        default:
-        {
-            break;
-        }
-    }
 
-    data += chunkSize;
-    size -= chunkSize;
-
-    if (size > 0) {
-        // continue to extract next 'tx3g'
-        return extract3GPPGlobalDescriptions(data, size, parcel, 1);
+        data += chunkSize;
+        size -= chunkSize;
     }
 
     return OK;
