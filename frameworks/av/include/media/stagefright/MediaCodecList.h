@@ -41,13 +41,7 @@ struct MediaCodecList {
     bool isEncoder(size_t index) const;
     bool codecHasQuirk(size_t index, const char *quirkName) const;
 
-    virtual sp<MediaCodecInfo> getCodecInfo(size_t index) const {
-        if (index >= mCodecInfos.size()) {
-            ALOGE("b/24445127");
-            return NULL;
-        }
-        return mCodecInfos.itemAt(index);
-    }
+    status_t getSupportedTypes(size_t index, Vector<AString> *types) const;
 
     struct ProfileLevel {
         uint32_t mProfile;
