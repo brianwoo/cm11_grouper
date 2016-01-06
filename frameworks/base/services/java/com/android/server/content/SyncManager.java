@@ -97,6 +97,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -2878,6 +2879,82 @@ public class SyncManager {
             if (sync == activeSyncContext) {
                 return true;
             }
+        }
+        return false;
+    }
+
+    /**
+     * Sync extra comparison function.
+     * @param b1 bundle to compare
+     * @param b2 other bundle to compare
+     * @param includeSyncSettings if false, ignore system settings in bundle.
+     */
+    public static boolean syncExtrasEquals(Bundle b1, Bundle b2, boolean includeSyncSettings) {
+        if (b1 == b2) {
+            return true;
+        }
+        // Exit early if we can.
+        if (includeSyncSettings && b1.size() != b2.size()) {
+            return false;
+        }
+        Bundle bigger = b1.size() > b2.size() ? b1 : b2;
+        Bundle smaller = b1.size() > b2.size() ? b2 : b1;
+        for (String key : bigger.keySet()) {
+            if (!includeSyncSettings && isSyncSetting(key)) {
+                continue;
+            }
+            if (!smaller.containsKey(key)) {
+                return false;
+            }
+            if (!Objects.equals(bigger.get(key), smaller.get(key))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * @return true if the provided key is used by the SyncManager in scheduling the sync.
+     */
+    private static boolean isSyncSetting(String key) {
+        if (key.equals(ContentResolver.SYNC_EXTRAS_EXPEDITED)) {
+            return true;
+        }
+        if (key.equals(ContentResolver.SYNC_EXTRAS_IGNORE_SETTINGS)) {
+            return true;
+        }
+        if (key.equals(ContentResolver.SYNC_EXTRAS_IGNORE_BACKOFF)) {
+            return true;
+        }
+        if (key.equals(ContentResolver.SYNC_EXTRAS_DO_NOT_RETRY)) {
+            return true;
+        }
+        if (key.equals(ContentResolver.SYNC_EXTRAS_MANUAL)) {
+            return true;
+        }
+        if (key.equals(ContentResolver.SYNC_EXTRAS_UPLOAD)) {
+            return true;
+        }
+        if (key.equals(ContentResolver.SYNC_EXTRAS_OVERRIDE_TOO_MANY_DELETIONS)) {
+            return true;
+        }
+        if (key.equals(ContentResolver.SYNC_EXTRAS_DISCARD_LOCAL_DELETIONS)) {
+            return true;
+        }
+        if (key.equals(ContentResolver.SYNC_EXTRAS_EXPECTED_UPLOAD)) {
+            return true;
+        }
+        if (key.equals(ContentResolver.SYNC_EXTRAS_EXPECTED_DOWNLOAD)) {
+            return true;
+        }
+        if (key.equals(ContentResolver.SYNC_EXTRAS_PRIORITY)) {
+            return true;
+        }
+        if (key.equals(ContentResolver.SYNC_EXTRAS_DISALLOW_METERED)) {
+            return true;
+        }
+        if (key.equals(ContentResolver.SYNC_EXTRAS_INITIALIZE)) {
+            return true;
         }
         return false;
     }
