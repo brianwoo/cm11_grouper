@@ -33,6 +33,12 @@
 
 #include "SoftMPEG4Encoder.h"
 
+#include <inttypes.h>
+
+#ifndef INT32_MAX
+#define INT32_MAX   2147483647
+#endif
+
 namespace android {
 
 template<class T>
