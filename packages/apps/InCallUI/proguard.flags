@@ -1,0 +1,26 @@
+-keep class com.android.incallui.widget.multiwaveview.* {
+  *;
+}
+
+-keep public class com.android.incallui.MediaHandler
+-keep public class com.android.incallui.ImsCamera
+
+-keepclasseswithmembers class * {
+    native <methods>;
+}
+
+-keep class com.android.incallui.MediaHandler {
+    *** onMediaEvent(...);
+}
+
+
+# Keep names that are used only by animation framework.
+-keepclasseswithmembers class com.android.incallui.AnimationUtils$CrossFadeDrawable {
+    *** setCrossFadeAlpha(...);
+}
+
+# Any class or method annotated with NeededForTesting or NeededForReflection.
+-keepclassmembers class * {
+@com.android.contacts.common.test.NeededForTesting *;
+@com.android.incallui.NeededForReflection *;
+}

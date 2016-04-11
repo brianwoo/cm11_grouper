@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2013 The CyanogenMod Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string-array name="wallpapers" translatable="false">
+        <item>quartz</item>
+        <item>hexography_blue</item>
+        <item>network</item>
+        <item>hextract</item>
+        <item>heresjohnny</item>
+        <item>hexography_salmon</item>
+        <item>hanksite</item>
+        <item>mauve</item>
+        <item>dystopia</item>
+        <item>theicestorm</item>
+        <item>frostmaple</item>
+        <item>maplebokeh</item>
+        <item>maplesunblaze</item>
+        <item>light_bursting_out</item>
+        <item>bladesplusdroplets</item>
+        <item>decay</item>
+    </string-array>
+
+    <string-array name="info" translatable="false">
+        <item>Quartz - Shane Long</item>
+        <item>Hexography Blue - Asher Simonds</item>
+        <item>Network - Shane Long</item>
+        <item>Hextract - Asher Simonds</item>
+        <item>Here\'s Johnny! - Shane Long</item>
+        <item>Hexography Salmon - Asher Simonds</item>
+        <item>Hanksite - Shane Long</item>
+        <item>Mauve - Mathew Hanley</item>
+        <item>Dystopia - Mathew Hanley</item>
+        <item>The Ice Storm - Henry Mason</item>
+        <item>Frost Maple - Henry Mason</item>
+        <item>Maple Bokeh - Henry Mason</item>
+        <item>Sunblaze Maple - Henry Mason</item>
+        <item>Light Bursting Out - Mathew Hanley</item>
+        <item>Blades of Glory - Henry Mason</item>
+        <item>Decay - Henry Mason</item>
+    </string-array>
+</resources>

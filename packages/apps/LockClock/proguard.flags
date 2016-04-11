@@ -1,0 +1,3 @@
+-keep class com.cyanogenmod.lockclock.preference.Preferences {
+  *;
+}

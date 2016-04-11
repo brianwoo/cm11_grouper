@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2009 The CyanogenMod Project (DvTonder)
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+-->
+
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    android:key="calendar_settings"
+    android:title="@string/calendar_category">
+
+    <PreferenceCategory
+        android:title="@string/general_category" >
+
+        <CheckBoxPreference
+            android:key="show_calendar"
+            android:title="@string/calendar_title"
+            android:defaultValue="false" />
+
+        <MultiSelectListPreference
+            android:key="calendar_list"
+            android:dependency="show_calendar"
+            android:dialogTitle="@string/calendars_title"
+            android:title="@string/calendars_title"
+            android:summary="@string/calendars_summary"
+            android:defaultValue="@array/empty_array" />
+
+        <ListPreference
+            android:key="calendar_lookahead"
+            android:dependency="show_calendar"
+            android:summary="%s"
+            android:dialogTitle="@string/calendar_lookahead_title"
+            android:title="@string/calendar_lookahead_title"
+            android:defaultValue="1209600000"
+            android:entries="@array/calendar_lookahead_entries"
+            android:entryValues="@array/calendar_lookahead_values" />
+
+        <CheckBoxPreference
+            android:key="calendar_reminders_only"
+            android:dependency="show_calendar"
+            android:title="@string/calendar_reminders_only_title"
+            android:summary="@string/calendar_reminders_only_summary"
+            android:defaultValue="false" />
+
+        <CheckBoxPreference
+            android:key="calendar_hide_allday"
+            android:dependency="show_calendar"
+            android:title="@string/calendar_hide_allday_title"
+            android:defaultValue="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="@string/display_category" >
+
+        <CheckBoxPreference
+            android:key="calendar_icon"
+            android:dependency="show_calendar"
+            android:title="@string/calendar_icon_title"
+            android:defaultValue="true" />
+
+        <ListPreference
+            android:key="calendar_show_location"
+            android:dependency="show_calendar"
+            android:summary="%s"
+            android:defaultValue="0"
+            android:dialogTitle="@string/calendar_show_location_title"
+            android:title="@string/calendar_show_location_title"
+            android:entries="@array/calendar_show_event_metadata_entries"
+            android:entryValues="@array/calendar_show_event_metadata_values" />
+
+        <ListPreference
+            android:key="calendar_show_description"
+            android:dependency="show_calendar"
+            android:summary="%s"
+            android:defaultValue="0"
+            android:dialogTitle="@string/calendar_show_description_title"
+            android:title="@string/calendar_show_description_title"
+            android:entries="@array/calendar_show_event_metadata_entries"
+            android:entryValues="@array/calendar_show_event_metadata_values" />
+
+        <ListPreference
+            android:key="calendar_font_color"
+            android:title="@string/font_color"
+            android:dependency="show_calendar"
+            android:defaultValue="#ffffffff"
+            android:entries="@array/font_color_entries"
+            android:entryValues="@array/font_color_values" />
+
+        <ListPreference
+            android:key="calendar_details_font_color"
+            android:title="@string/font_color_calendar_details"
+            android:dependency="show_calendar"
+            android:defaultValue="#80ffffff"
+            android:entries="@array/font_color_entries"
+            android:entryValues="@array/font_color_values" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="@string/calendar_upcoming_events_category" >
+
+        <CheckBoxPreference
+            android:key="calendar_highlight_upcoming_events"
+            android:dependency="show_calendar"
+            android:title="@string/calendar_highlight_upcoming_events_title"
+            android:summary="@string/calendar_highlight_upcoming_events_summary"
+            android:defaultValue="false" />
+
+        <CheckBoxPreference
+            android:key="calendar_highlight_upcoming_events_bold"
+            android:dependency="calendar_highlight_upcoming_events"
+            android:title="@string/calendar_highlight_upcoming_events_bold"
+            android:defaultValue="false" />
+
+        <ListPreference
+            android:key="calendar_highlight_upcoming_events_font_color"
+            android:title="@string/font_color"
+            android:dependency="calendar_highlight_upcoming_events"
+            android:defaultValue="#ffffffff"
+            android:entries="@array/font_color_entries"
+            android:entryValues="@array/font_color_values" />
+
+        <ListPreference
+            android:key="calendar_highlight_upcoming_events_details_font_color"
+            android:title="@string/font_color_calendar_details"
+            android:dependency="calendar_highlight_upcoming_events"
+            android:defaultValue="#80ffffff"
+            android:entries="@array/font_color_entries"
+            android:entryValues="@array/font_color_values" />
+    </PreferenceCategory>
+</PreferenceScreen>

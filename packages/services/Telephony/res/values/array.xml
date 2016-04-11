@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) 2012, The Linux Foundation. All rights reserved.
+     Not a Contribution, Apache license notifications and license are retained
+     for attribution purposes only.
+
+     Copyright (C) 2010 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+-->
+
+<!-- Array resources for the Phone app. -->
+<resources>
+    <string-array translatable="false" name="transport_types">
+        <item>UDP</item>
+        <item>TCP</item>
+    </string-array>
+
+    <!-- Array resource of different call type capability on IMS -->
+    <string-array translatable="false" name="ims_call_cap_types">
+        <item>Voice</item>
+        <item>Video</item>
+    </string-array>
+
+    <!-- Array resource of all call types i.e Voice, Video on IMS and Voice on CS -->
+    <string-array translatable="false" name="ims_call_types">
+        <item>Voice</item>
+        <item>Video</item>
+        <item>CSVoice</item>
+    </string-array>
+
+    <!-- Array resource of call types IMS Video and CS Voice -->
+    <string-array translatable="false" name="ims_video_cs_call_types">
+        <item>Video</item>
+        <item>CSVoice</item>
+    </string-array>
+
+    <!-- Array resource of call types IMS Voice and CS Voice -->
+    <string-array translatable="false" name="ims_voice_cs_call_types">
+        <item>Voice</item>
+        <item>CSVoice</item>
+    </string-array>
+
+    <!-- Array resource for IMS VT call quality entries-->
+    <string-array translatable="true" name="ims_vt_call_quality_entries">
+        <item>@string/ims_vt_call_quality_low</item>
+        <item>@string/ims_vt_call_quality_high</item>
+    </string-array>
+
+    <!-- Array resource for IMS VT call quality values-->
+    <string-array translatable="false" name="ims_vt_call_quality_values">
+        <item>0</item>
+        <item>1</item>
+    </string-array>
+
+    <!-- Array resource of call type CS Voice -->
+    <string-array translatable="false" name="cs_call_type">
+        <item>CSVoice</item>
+    </string-array>
+
+    <string-array translatable="true" name="sip_call_options_entries">
+        <item>@string/sip_call_options_entry_1</item>
+        <item>@string/sip_call_options_entry_2</item>
+        <item>@string/sip_call_options_entry_3</item>
+    </string-array>
+
+    <string-array translatable="true" name="sip_call_options_wifi_only_entries">
+        <item>@string/sip_call_options_wifi_only_entry_1</item>
+        <item>@string/sip_call_options_entry_2</item>
+        <item>@string/sip_call_options_entry_3</item>
+    </string-array>
+
+    <string-array translatable="false" name="sip_call_options_values">
+        <item>@string/sip_always</item>
+        <item>@string/sip_address_only</item>
+        <item>@string/sip_ask_me_each_time</item>
+    </string-array>
+
+    <string-array translatable="false" name="phone_type_values">
+        <item>@string/pstn_phone</item>
+        <item>@string/internet_phone</item>
+    </string-array>
+
+    <string-array translatable="true" name="sip_send_keepalive_options">
+        <item>@string/sip_system_decide</item>
+        <item>@string/sip_always_send_keepalive</item>
+    </string-array>
+
+</resources>

@@ -1,0 +1,4 @@
+include ':cardslib'
+
+project(':cardslib').projectDir = new File(rootProject.projectDir, '../../../../external/cardslib/library/')
+rootProject.name = 'CMHome'
