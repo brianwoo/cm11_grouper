@@ -680,6 +680,10 @@ static int aacDecoder_drcExtractAndMap (
   }
   self->numPayloads = 0;
 
+  if (self->numThreads >= MAX_DRC_THREADS) {
+      self->numThreads = MAX_DRC_THREADS - 1;
+  }
+
   if (self->dvbAncDataAvailable)
   { /* Append a DVB heavy compression payload thread if available. */
     int bitsParsed;
@@ -705,6 +709,10 @@ static int aacDecoder_drcExtractAndMap (
   /* calculate number of valid bits in excl_chn_mask */
 
   /* coupling channels not supported */
+
+  if (self->numThreads >= MAX_DRC_THREADS) {
+      self->numThreads = MAX_DRC_THREADS - 1;
+  }
 
   /* check for valid threads */
   for (thread = 0; thread < self->numThreads; thread++) {
