@@ -64,8 +64,12 @@ AudioSource::AudioSource(
     : mStarted(false),
 #endif
       mSampleRate(sampleRate),
+      mTrackMaxAmplitude(false),
+      mStartTimeUs(0),
+      mMaxAmplitude(0),
       mPrevSampleTimeUs(0),
       mRecPaused(false),
+      mInitialReadTimeUs(0),
       mNumFramesReceived(0),
 #ifdef QCOM_HARDWARE
       mNumClientOwnedBuffers(0),
