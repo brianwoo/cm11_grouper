@@ -34,6 +34,9 @@ static void InitOMXParams(T *params) {
     params->nVersion.s.nStep = 0;
 }
 
+// Microsoft WAV GSM encoding packs two GSM frames into 65 bytes.
+static const int kMSGSMFrameSize = 65;
+
 SoftGSM::SoftGSM(
         const char *name,
         const OMX_CALLBACKTYPE *callbacks,
