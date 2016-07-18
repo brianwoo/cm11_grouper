@@ -288,9 +288,10 @@ sp<DataSource> DataSource::CreateFromURI(
                         &copy, &cacheConfig, &disconnectAtHighwatermark);
             }
 
-            source = new NuCachedSource2(
+            source = NuCachedSource2::Create(
                     httpSource,
-                    cacheConfig.isEmpty() ? NULL : cacheConfig.string());
+                    cacheConfig.isEmpty() ? NULL : cacheConfig.string(),
+                    disconnectAtHighwatermark);
         } else {
             // We do not want that prefetching, caching, datasource wrapper
             // in the widevine:// case.
