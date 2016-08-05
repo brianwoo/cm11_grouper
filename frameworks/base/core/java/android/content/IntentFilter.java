@@ -681,15 +681,6 @@ public class IntentFilter implements Parcelable {
             return mPort;
         }
 
-        @Override
-        public boolean equals(Object obj) {
-            if (obj instanceof AuthorityEntry) {
-                final AuthorityEntry other = (AuthorityEntry)obj;
-                return match(other);
-            }
-            return false;
-        }
-
         /**
          * Determine whether this AuthorityEntry matches the given data Uri.
          * <em>Note that this comparison is case-sensitive, unlike formal
